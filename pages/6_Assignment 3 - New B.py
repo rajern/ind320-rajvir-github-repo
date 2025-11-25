@@ -1,9 +1,9 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from scipy.fft import dct, idct
 from sklearn.neighbors import LocalOutlierFactor
+import plotly.graph_objects as go
 
 from src.data_loader import load_open_meteo_api
 
@@ -60,17 +60,51 @@ def plot_temperature_with_spc(
     # Outliers are points where SATV is outside limits
     is_outlier = (satv < satv_lower) | (satv > satv_upper)
 
-    # --------- Plot ----------
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(timestamps, temp, linewidth=0.9, label="Temperature")
-    ax.plot(timestamps, lower_limit, linestyle="--", linewidth=0.9, label="SPC lower")
-    ax.plot(timestamps, upper_limit, linestyle="--", linewidth=0.9, label="SPC upper")
-    ax.scatter(timestamps[is_outlier], temp[is_outlier], s=12, color="red", label="Outliers")
+    # --------- Plot using Plotly ----------
+    fig = go.Figure()
 
-    ax.set_xlabel("Time")
-    ax.set_ylabel("Temperature (°C)")
-    ax.legend()
-    fig.tight_layout()
+    fig.add_trace(
+        go.Scatter(
+            x=timestamps,
+            y=temp,
+            mode="lines",
+            name="Temperature",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=timestamps,
+            y=lower_limit,
+            mode="lines",
+            name="SPC lower",
+            line=dict(dash="dash"),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=timestamps,
+            y=upper_limit,
+            mode="lines",
+            name="SPC upper",
+            line=dict(dash="dash"),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=timestamps[is_outlier],
+            y=temp[is_outlier],
+            mode="markers",
+            name="Outliers",
+            marker=dict(color="red", size=5),
+        )
+    )
+
+    fig.update_layout(
+        xaxis_title="Time",
+        yaxis_title="Temperature (°C)",
+        legend_title=None,
+        margin=dict(l=40, r=20, t=40, b=40),
+    )
 
     summary = {
         "n_points": int(n_samples),
@@ -83,6 +117,7 @@ def plot_temperature_with_spc(
     }
 
     return fig, summary
+
 
 # Function for plotting precipitation and relevant summaries of outliers
 def plot_precipitation_with_lof(
@@ -120,15 +155,33 @@ def plot_precipitation_with_lof(
 
     is_outlier = labels == -1
 
-    # Plot precipitation with outliers highlighted
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(time, precip, linewidth=0.9, label="Precipitation")
-    ax.scatter(time[is_outlier], precip[is_outlier], s=12, color="red", label="Outliers")
+    # --------- Plot using Plotly ----------
+    fig = go.Figure()
 
-    ax.set_xlabel("Time")
-    ax.set_ylabel("Precipitation (mm)")
-    ax.legend()
-    fig.tight_layout()
+    fig.add_trace(
+        go.Scatter(
+            x=time,
+            y=precip,
+            mode="lines",
+            name="Precipitation",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=time[is_outlier],
+            y=precip[is_outlier],
+            mode="markers",
+            name="Outliers",
+            marker=dict(color="red", size=5),
+        )
+    )
+
+    fig.update_layout(
+        xaxis_title="Time",
+        yaxis_title="Precipitation (mm)",
+        legend_title=None,
+        margin=dict(l=40, r=20, t=40, b=40),
+    )
 
     # Simple summary of outliers
     n_outliers = int(is_outlier.sum())
@@ -201,7 +254,7 @@ with tab_spc:
         trend_keep_fraction=trend_keep_fraction,
         sigma_threshold=sigma_threshold,
     )
-    st.pyplot(fig_spc)
+    st.plotly_chart(fig_spc, use_container_width=True)
     st.json(summary_spc)
 
 # ---------------- LOF tab ----------------
@@ -231,5 +284,5 @@ with tab_lof:
         outlier_fraction=outlier_fraction,
         n_neighbors=int(n_neighbors),
     )
-    st.pyplot(fig_lof)
+    st.plotly_chart(fig_lof, use_container_width=True)
     st.json(summary_lof)
