@@ -34,6 +34,9 @@ def plot_stl_elhub(
     sub = sub.sort_values(time_col)
     series = sub.set_index(time_col)[value_col]
 
+    # Remove duplicate indices if any
+    series = series[~series.index.duplicated(keep="first")]
+
     # Force regular hourly frequency and fill small gaps
     series = series.asfreq("h")
     series = series.interpolate(limit_direction="both")
