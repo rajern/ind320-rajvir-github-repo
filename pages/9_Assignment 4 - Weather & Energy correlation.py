@@ -14,12 +14,12 @@ from src.data_loader import (
 # ------------------------------------------------------------------
 
 # Rough central coordinates for each Norwegian price area
-PRICEAREA_COORDS: dict[str, tuple[float, float]] = {
-    "NO1": (59.91, 10.75),  # Oslo 
-    "NO2": (58.97, 5.73),   # Stavanger 
-    "NO3": (63.43, 10.40),  # Trondheim 
-    "NO4": (69.65, 18.96),  # Tromsø 
-    "NO5": (60.39, 5.32),   # Bergen 
+PRICEAREA_COORDS = {
+    "NO1": (59.91, 10.75),  # Oslo region
+    "NO2": (58.97, 5.73),   # Stavanger region
+    "NO3": (63.43, 10.40),  # Trondheim region
+    "NO4": (69.65, 18.96),  # Tromsø region
+    "NO5": (60.39, 5.32),   # Bergen region
 }
 
 METEO_OPTIONS = {
@@ -33,7 +33,7 @@ METEO_OPTIONS = {
 # Main page
 # ------------------------------------------------------------------
 
-st.title("Meteorology and energy production – Sliding window correlation")
+st.title("Weather and energy production/consumption correlation")
 
 st.markdown(
     """
@@ -77,7 +77,7 @@ with left_col:
     df_prod = load_elhub_production_data()
     df_cons = load_elhub_consumption_data()
 
-    # Build energy options dynamically for the selected price area
+    # Build available groups dynamically for the selected price area
     prod_groups = sorted(
         df_prod.loc[df_prod["pricearea"] == area, "productiongroup"].dropna().unique()
     )
@@ -85,23 +85,27 @@ with left_col:
         df_cons.loc[df_cons["pricearea"] == area, "consumptiongroup"].dropna().unique()
     )
 
-    energy_mapping: dict[str, tuple[str, str]] = {}
-    for g in prod_groups:
-        label = f"Production – {g}"
-        energy_mapping[label] = ("production", g)
-    for g in cons_groups:
-        label = f"Consumption – {g}"
-        energy_mapping[label] = ("consumption", g)
+    st.subheader("Energy series")
 
-    if not energy_mapping:
-        st.error("No production or consumption data found for this price area.")
+    energy_mode = st.radio(
+        "Energy type",
+        ["Production", "Consumption"],
+        index=0,
+        help="Choose whether to correlate production or consumption with weather.",
+    )
+
+    if energy_mode == "Production":
+        group_options = prod_groups
+        group_label = "Production group"
+    else:
+        group_options = cons_groups
+        group_label = "Consumption group"
+
+    if not group_options:
+        st.error(f"No {energy_mode.lower()} groups found for {area}.")
         st.stop()
 
-    energy_label = st.selectbox(
-        "Energy series (production / consumption)",
-        list(energy_mapping.keys()),
-    )
-    energy_type, energy_group = energy_mapping[energy_label]
+    energy_group = st.selectbox(group_label, group_options)
 
     # Window and lag controls
     window_days = st.slider(
@@ -155,33 +159,41 @@ meteo_series = (
     .rename(columns={meteo_col: "meteo"})
     .sort_index()
 )
+# Ensure unique index
+meteo_series = meteo_series[~meteo_series.index.duplicated(keep="first")]
 
 # Energy series from MongoDB (already cached by data_loader)
-if energy_type == "production":
+if energy_mode == "Production":
     df_energy = df_prod[
         (df_prod["pricearea"] == area)
         & (df_prod["productiongroup"] == energy_group)
         & (df_prod["starttime"].dt.year == year)
     ].copy()
+    energy_series_name = f"Production – {energy_group}"
 else:
     df_energy = df_cons[
         (df_cons["pricearea"] == area)
         & (df_cons["consumptiongroup"] == energy_group)
         & (df_cons["starttime"].dt.year == year)
     ].copy()
+    energy_series_name = f"Consumption – {energy_group}"
 
 if df_energy.empty:
     right_col.warning(
-        f"No {energy_type} data for group '{energy_group}' in {area} for {year}."
+        f"No {energy_mode.lower()} data for group '{energy_group}' in {area} for {year}."
     )
     st.stop()
 
 df_energy["starttime"] = pd.to_datetime(df_energy["starttime"])
+
+# Aggregate to one value per timestamp and ensure unique index
 energy_series = (
-    df_energy.set_index("starttime")["quantitykwh"]
+    df_energy.groupby("starttime")["quantitykwh"]
+    .sum()
     .sort_index()
     .rename("energy")
 )
+energy_series = energy_series[~energy_series.index.duplicated(keep="first")]
 
 # Align to common hourly time index (inner join)
 combined = pd.concat([meteo_series, energy_series], axis=1, join="inner").dropna()
@@ -238,7 +250,7 @@ with right_col:
         go.Scatter(
             x=combined.index,
             y=combined["energy_lagged"],
-            name=f"{energy_label} (lagged)",
+            name=f"{energy_series_name} (lagged)",
             mode="lines",
         ),
         secondary_y=True,
@@ -292,6 +304,6 @@ with right_col:
 - Overall Pearson correlation (full year, with lag {lag_hours} h): `{overall_corr:.3f}`  
 - Rolling window: `{window_days}` days (`{window_hours}` hours)  
 - Meteo series: **{meteo_label}**  
-- Energy series: **{energy_label}** in **{area}**, year **{year}**
+- Energy series: **{energy_series_name}** in **{area}**, year **{year}**
 """
     )
