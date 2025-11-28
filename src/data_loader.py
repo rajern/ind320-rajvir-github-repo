@@ -14,16 +14,34 @@ def load_open_meteo() -> pd.DataFrame:
 
 # Cache function for loading production data from MongoDB (elhub2021 / production_per_group_hour)
 @st.cache_data
-def load_elhub_api_data():
+def load_elhub_production_data() -> pd.DataFrame:
+    """
+    Load production_per_group_hour from MongoDB (all years).
+    """
     client = MongoClient(st.secrets["MONGODB_URI"])
     db = client["elhub2021"]
     col = db["production_per_group_hour"]
 
-    # Read all documents, drop the internal MongoDB _id field
     records = list(col.find({}, {"_id": 0}))
     client.close()
 
-    # Convert to DataFrame and ensure starttime is a proper datetime column
+    df = pd.DataFrame(records)
+    df["starttime"] = pd.to_datetime(df["starttime"])
+    return df
+
+# Cache function for loading consumption data from MongoDB (elhub2021 / consumption_per_group_hour)
+@st.cache_data
+def load_elhub_consumption_data() -> pd.DataFrame:
+    """
+    Load consumption_per_group_hour from MongoDB (all years).
+    """
+    client = MongoClient(st.secrets["MONGODB_URI"])
+    db = client["elhub2021"]
+    col = db["consumption_per_group_hour"]
+
+    records = list(col.find({}, {"_id": 0}))
+    client.close()
+
     df = pd.DataFrame(records)
     df["starttime"] = pd.to_datetime(df["starttime"])
     return df
@@ -67,3 +85,13 @@ def load_open_meteo_api(
     df["time"] = pd.to_datetime(df["time"])
     df.set_index("time", inplace=True)
     return df
+
+# Cache function for loading price area GeoJSON file
+@st.cache_data(show_spinner=False)
+def load_pricearea_geojson() -> dict:
+    """
+    Load the price area GeoJSON file from data/file.geojson.
+    """
+    geo_path = Path(__file__).parent.parent / "data" / "file.geojson"
+    with geo_path.open("r", encoding="utf-8") as f:
+        return json.load(f)
