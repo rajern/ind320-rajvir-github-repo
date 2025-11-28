@@ -9,3 +9,5 @@ scipy
 scikit-learn
 statsmodels
 requests
+folium
+streamlit_folium
