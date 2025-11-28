@@ -3,7 +3,7 @@ import pandas as pd
 
 st.set_page_config(page_title="IND320 App", layout="wide")
 
-st.title("IND320 – Assignment App")
+st.title("Home")
 
 st.write(
     """
