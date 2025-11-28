@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 from src.data_loader import load_open_meteo_api
 
-st.title("Plot explorer")
+st.title("Weather plot explorer for 2021")
 
 # Map price areas to city coordinates
 AREA_COORDS = {

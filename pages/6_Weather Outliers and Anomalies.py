@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 
 from src.data_loader import load_open_meteo_api
 
-st.title("Assignment 3 – Outliers and anomalies (SPC & LOF)")
+st.title("Weather Outliers and anomalies (SPC & LOF)")
 
 
 # ---- Functions created in assignment3.ipynb ----

@@ -221,7 +221,7 @@ def plot_wind_rose(avg_sector_values: np.ndarray, overall_avg_kgm: float):
 
 
 def main() -> None:
-    st.title("Assignment 4 – Snow drift")
+    st.title("Snow drift")
 
     st.write(
         "This page calculates yearly snow drift for a selected coordinate using "

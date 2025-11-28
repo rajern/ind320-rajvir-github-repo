@@ -8,7 +8,7 @@ from plotly.subplots import make_subplots
 
 from src.data_loader import load_elhub_production_data
 
-st.title("Assignment 3 – STL and spectrogram")
+st.title("STL and spectrogram for Energy Production")
 
 # ---- Functions created in assignment3.ipynb ----
 
@@ -160,7 +160,7 @@ current_area = st.session_state.get("pricearea", areas[0])
 if current_area not in areas:
     current_area = areas[0]
 
-st.write(f"Current price area: **{current_area}**")
+st.write(f"Current price area selected on page Energy Production Explorer: **{current_area}**")
 
 # All production groups in this price area
 groups = sorted(

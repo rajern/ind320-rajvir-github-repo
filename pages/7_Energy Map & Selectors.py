@@ -164,7 +164,7 @@ def build_map(
 # -----------------------------
 
 def main():
-    st.title("Assignment 4 – Map and selectors")
+    st.title("Map and selectors")
 
     st.write(
         "This page shows the Norwegian price areas (NO1–NO5). "

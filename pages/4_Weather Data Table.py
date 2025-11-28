@@ -2,7 +2,12 @@ import streamlit as st
 import pandas as pd
 from src.data_loader import load_open_meteo_api
 
-st.title("Data table")
+st.title("Weather Data table")
+st.markdown("""
+    This page shows a table of weather data variables from 2021
+    for the selected price area the Energy Production Explorer page.
+"""
+)
 
 # Map price areas to city coordinates
 AREA_COORDS = {
