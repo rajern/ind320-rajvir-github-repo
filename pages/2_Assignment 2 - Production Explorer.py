@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from src.data_loader import load_elhub_api_data
+from src.data_loader import load_elhub_production_data
 
-st.title("Production explorer")
+st.title("Energy Production")
 
-# Load Elhub data (2021) from MongoDB via cached helper
-df = load_elhub_api_data()
+# Load Elhub production data from MongoDB via cached helper
+df = load_elhub_production_data()
 YEAR = 2021
 
 # Available price areas

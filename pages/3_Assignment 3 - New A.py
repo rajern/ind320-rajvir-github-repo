@@ -6,7 +6,7 @@ from scipy.signal import spectrogram
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from src.data_loader import load_elhub_api_data
+from src.data_loader import load_elhub_production_data
 
 st.title("Assignment 3 – STL and spectrogram")
 
@@ -150,7 +150,7 @@ def plot_spectrogram_elhub(
 
 # ---- Load Elhub data and use price area from page 2 ----
 
-df = load_elhub_api_data()
+df = load_elhub_production_data()
 
 # Find available price areas
 areas = sorted(df["pricearea"].dropna().unique().tolist())
