@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Tuple, List
+from typing import List
 
 import numpy as np
 import pandas as pd
@@ -8,28 +8,12 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
+from src.analysis_context import render_analysis_context
 from src.data_loader import load_open_meteo_api
 from src.Snow_drift import (
     compute_yearly_results,
     compute_average_sector,
 )
-
-
-# -----------------------------
-# Helpers
-# -----------------------------
-
-
-def get_map_coordinate() -> Tuple[float, float] | None:
-    """
-    Read the coordinate stored by the Energy Map page.
-
-    Returns (lat, lon) if available, otherwise None.
-    """
-    coord = st.session_state.get("map_coord")
-    if not coord:
-        return None
-    return coord["lat"], coord["lon"]
 
 
 def download_weather_for_seasons(
@@ -221,6 +205,11 @@ def plot_wind_rose(avg_sector_values: np.ndarray, overall_avg_kgm: float):
 
 
 def main() -> None:
+    context = render_analysis_context(
+        show_period=False,
+        show_resolution=False,
+    )
+
     st.title("Snow drift")
 
     st.caption(
@@ -228,27 +217,13 @@ def main() -> None:
         "hourly weather data from the Open-Meteo archive. "
     )
 
-    # --- Coordinate from Energy Map page ---
-    coord = get_map_coordinate()
-    if coord is None:
-        st.warning("A coordinate is required before the snow-drift calculation can run.")
-        st.page_link("pages/5_Energy Map.py", label="Open Energy Map and select a point")
-
-        with st.expander("Enter coordinates manually"):
-            manual_col_1, manual_col_2 = st.columns(2)
-            manual_lat = manual_col_1.number_input(
-                "Latitude", min_value=-90.0, max_value=90.0, value=60.0, format="%.4f"
-            )
-            manual_lon = manual_col_2.number_input(
-                "Longitude", min_value=-180.0, max_value=180.0, value=10.0, format="%.4f"
-            )
-            if st.button("Use these coordinates", type="primary"):
-                st.session_state["map_coord"] = {"lat": manual_lat, "lon": manual_lon}
-                st.rerun()
-        st.stop()
-
-    lat, lon = coord
-    st.info(f"Selected coordinate: {lat:.4f}, {lon:.4f}")
+    lat = context.latitude
+    lon = context.longitude
+    st.info(
+        f"Weather location: {context.location_label} | "
+        f"{lat:.4f}, {lon:.4f}"
+    )
+    st.page_link("pages/5_Energy Map.py", label="Change weather location on Energy Map")
 
     # --- User controls: seasons and model parameters ---
     st.subheader("Season and model settings")

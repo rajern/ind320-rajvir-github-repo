@@ -5,12 +5,17 @@ from scipy.fft import dct, idct
 from sklearn.neighbors import LocalOutlierFactor
 import plotly.graph_objects as go
 
+from src.analysis_context import context_caption, render_analysis_context
 from src.data_loader import load_open_meteo_api
+
+context = render_analysis_context(show_resolution=False)
 
 st.title("Anomaly detection")
 st.caption(
     "Flag unusual temperature and precipitation observations with statistical process control and Local Outlier Factor."
 )
+st.markdown(context_caption(context, include_resolution=False))
+st.caption(f"Coordinates: {context.latitude:.4f}, {context.longitude:.4f}")
 
 
 # ---- Analysis helpers ----
@@ -199,24 +204,22 @@ def plot_precipitation_with_lof(
     return fig, summary
 
 
-# Load Open-Meteo data based on price area
-AREA_COORDS = {
-    "NO1": (59.91390, 10.75220),
-    "NO2": (58.14670, 7.99560),
-    "NO3": (63.43050, 10.39510),
-    "NO4": (69.64920, 18.95600),
-    "NO5": (60.39299, 5.32415),
-}
+# Load Open-Meteo data for the shared weather location and period
+df = load_open_meteo_api(
+    latitude=context.latitude,
+    longitude=context.longitude,
+    year=2021,
+    area=context.price_area,
+)
+start_ts = pd.Timestamp(context.start_date)
+end_ts = pd.Timestamp(context.end_date) + pd.Timedelta(days=1)
+df_period = df[(df.index >= start_ts) & (df.index < end_ts)]
 
-pricearea = st.session_state.get("pricearea", "NO1")
-if pricearea not in AREA_COORDS:
-    pricearea = "NO1"
+if df_period.empty:
+    st.warning("No weather data are available for the shared location and period.")
+    st.stop()
 
-lat, lon = AREA_COORDS[pricearea]
-st.caption(f"Selected price area: **{pricearea}** (shared from Energy Explorer).")
-
-df = load_open_meteo_api(latitude=lat, longitude=lon, year=2021, area=pricearea)
-df_plot = df.reset_index().rename(columns={"time": "date"})
+df_plot = df_period.reset_index().rename(columns={"time": "date"})
 
 tab_spc, tab_lof = st.tabs(["Temperature (SPC)", "Precipitation (LOF)"])
 

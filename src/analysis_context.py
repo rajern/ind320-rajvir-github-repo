@@ -68,6 +68,7 @@ def _weather_location(price_area: str) -> tuple[float, float, str, str]:
 
 def render_analysis_context(
     *,
+    show_period: bool = True,
     show_resolution: bool = True,
     show_location: bool = True,
 ) -> AnalysisContext:
@@ -81,13 +82,16 @@ def render_analysis_context(
         key="pricearea",
         help="Shared by the energy and weather views.",
     )
-    period = st.sidebar.date_input(
-        "Period",
-        min_value=MIN_DATE,
-        max_value=MAX_DATE,
-        key="analysis_period",
-        help="The pilot currently uses the common 2021 data period.",
-    )
+    if show_period:
+        period = st.sidebar.date_input(
+            "Period",
+            min_value=MIN_DATE,
+            max_value=MAX_DATE,
+            key="analysis_period",
+            help="The pilot currently uses the common 2021 data period.",
+        )
+    else:
+        period = st.session_state["analysis_period"]
     if show_resolution:
         resolution = st.sidebar.selectbox(
             "Time resolution",
@@ -101,7 +105,8 @@ def render_analysis_context(
         start_date, end_date = period
     else:
         start_date = end_date = period[0] if period else MIN_DATE
-        st.sidebar.caption("Choose an end date to complete the period.")
+        if show_period:
+            st.sidebar.caption("Choose an end date to complete the period.")
 
     latitude, longitude, location_label, location_source = _weather_location(price_area)
 

@@ -53,6 +53,7 @@ period_col.metric(
     "Period",
     f"{context.start_date:%d %b} - {context.end_date:%d %b %Y}",
 )
+st.caption(f"Coordinates: {lat:.4f}, {lon:.4f}")
 
 explore_tab, overview_tab = st.tabs(["Explore", "Data overview"])
 
