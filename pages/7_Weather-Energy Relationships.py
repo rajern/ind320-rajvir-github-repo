@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from src.analysis_context import context_caption, render_analysis_context
 from src.data_loader import (
     load_open_meteo_api,
     load_elhub_production_data,
@@ -13,17 +14,8 @@ from src.data_loader import (
 # Configuration and helpers
 # ------------------------------------------------------------------
 
-# Rough central coordinates for each Norwegian price area
-PRICEAREA_COORDS = {
-    "NO1": (59.91, 10.75),  # Oslo region
-    "NO2": (58.97, 5.73),   # Stavanger region
-    "NO3": (63.43, 10.40),  # Trondheim region
-    "NO4": (69.65, 18.96),  # Troms? region
-    "NO5": (60.39, 5.32),   # Bergen region
-}
-
 METEO_OPTIONS = {
-    "Temperature 2m [?C]": "temperature_2m",
+    "Temperature 2m [\u00b0C]": "temperature_2m",
     "Precipitation [mm]": "precipitation",
     "Wind speed 10m [m/s]": "wind_speed_10m",
     "Wind gusts 10m [m/s]": "wind_gusts_10m",
@@ -33,40 +25,25 @@ METEO_OPTIONS = {
 # Main page
 # ------------------------------------------------------------------
 
+context = render_analysis_context()
+
 st.title("Weather-energy relationships")
-
 st.caption(
-    """
-This page compares meteorological conditions with electricity production and
-consumption using a sliding window correlation.
-Positive lag means **weather leads** the energy series (energy responds later).
-"""
+    "Compare weather with electricity production or consumption using a "
+    "sliding-window correlation. Positive lag means weather leads the energy series."
 )
+st.markdown(context_caption(context))
+st.caption(f"Coordinates: {context.latitude:.4f}, {context.longitude:.4f}")
 
-# Shared price area from Energy Explorer (fallback if missing)
-default_area = st.session_state.get("pricearea", "NO1")
-all_areas = ["NO1", "NO2", "NO3", "NO4", "NO5"]
+area = context.price_area
+year = context.start_date.year
 
-left_col, right_col = st.columns([1, 3])
+st.divider()
+st.subheader("Analysis settings")
+settings_container = st.container()
+results_container = st.container()
 
-with left_col:
-    st.subheader("Settings")
-
-    area = st.selectbox(
-        "Price area",
-        all_areas,
-        index=all_areas.index(default_area) if default_area in all_areas else 0,
-        help="Price area used for both meteorology and energy data.",
-    )
-    st.session_state["pricearea"] = area
-
-    year = st.selectbox(
-        "Year",
-        [2021, 2022, 2023, 2024],
-        index=0,
-        help="Year for both weather and energy series.",
-    )
-
+with settings_container:
     meteo_label = st.selectbox(
         "Meteorological property",
         list(METEO_OPTIONS.keys()),
@@ -84,8 +61,6 @@ with left_col:
     cons_groups = sorted(
         df_cons.loc[df_cons["pricearea"] == area, "consumptiongroup"].dropna().unique()
     )
-
-    st.subheader("Energy series")
 
     energy_mode = st.radio(
         "Energy type",
@@ -119,7 +94,7 @@ with left_col:
     window_hours = window_days * 24
 
     lag_hours = st.slider(
-        "Lag (hours, weather ? energy)",
+        "Lag (hours, weather -> energy)",
         min_value=-72,
         max_value=72,
         value=0,
@@ -130,23 +105,25 @@ with left_col:
         ),
     )
 
-    display_resolution = st.selectbox(
-        "Chart resolution",
-        ["Daily mean", "Hourly"],
-        index=0,
-        help="This changes only the time-series display, not the hourly correlation calculation.",
-    )
+    display_resolution = context.resolution
     st.caption(
-        "Correlation is computed on hourly data. Series are aligned and NaNs dropped "
-        "before calculating the rolling correlation."
+        f"Charts use the shared {display_resolution.lower()} resolution. Correlation "
+        "is calculated on aligned hourly observations."
     )
+    run_analysis = st.button("Run relationship analysis", type="primary")
+
+if not run_analysis:
+    results_container.info(
+        "Review the settings and click **Run relationship analysis** to calculate the results."
+    )
+    st.stop()
 
 # ------------------------------------------------------------------
 # Data preparation
 # ------------------------------------------------------------------
 
-coords = PRICEAREA_COORDS.get(area, PRICEAREA_COORDS["NO1"])
-latitude, longitude = coords
+latitude = context.latitude
+longitude = context.longitude
 
 # Weather from Open-Meteo API (cached in data_loader)
 meteo_df = load_open_meteo_api(
@@ -157,7 +134,7 @@ meteo_df = load_open_meteo_api(
 )
 
 if meteo_col not in meteo_df.columns:
-    right_col.error(f"Column '{meteo_col}' not found in Open-Meteo data.")
+    results_container.error(f"Column '{meteo_col}' not found in Open-Meteo data.")
     st.stop()
 
 meteo_series = (
@@ -175,17 +152,17 @@ if energy_mode == "Production":
         & (df_prod["productiongroup"] == energy_group)
         & (df_prod["starttime"].dt.year == year)
     ].copy()
-    energy_series_name = f"Production ? {energy_group}"
+    energy_series_name = f"Production | {energy_group}"
 else:
     df_energy = df_cons[
         (df_cons["pricearea"] == area)
         & (df_cons["consumptiongroup"] == energy_group)
         & (df_cons["starttime"].dt.year == year)
     ].copy()
-    energy_series_name = f"Consumption ? {energy_group}"
+    energy_series_name = f"Consumption | {energy_group}"
 
 if df_energy.empty:
-    right_col.warning(
+    results_container.warning(
         f"No {energy_mode.lower()} data for group '{energy_group}' in {area} for {year}."
     )
     st.stop()
@@ -204,8 +181,12 @@ energy_series = energy_series[~energy_series.index.duplicated(keep="first")]
 # Align to common hourly time index (inner join)
 combined = pd.concat([meteo_series, energy_series], axis=1, join="inner").dropna()
 
+start_ts = pd.Timestamp(context.start_date)
+end_ts = pd.Timestamp(context.end_date) + pd.Timedelta(days=1)
+combined = combined[(combined.index >= start_ts) & (combined.index < end_ts)]
+
 if combined.empty:
-    right_col.warning("No overlapping timestamps between weather and energy data.")
+    results_container.warning("No overlapping timestamps between weather and energy data.")
     st.stop()
 
 # Apply lag: positive lag => energy responds later than weather
@@ -217,7 +198,7 @@ else:
 combined = combined.dropna(subset=["meteo", "energy_lagged"])
 
 if len(combined) < window_hours:
-    right_col.warning(
+    results_container.warning(
         "Window length is longer than the available time series after lagging. "
         "Reduce the window length or lag."
     )
@@ -234,22 +215,24 @@ corr_series = (
 overall_corr = combined["meteo"].corr(combined["energy_lagged"])
 
 
-if display_resolution == "Daily mean":
+if display_resolution == "Daily":
     plot_combined = combined.resample("D").mean()
+elif display_resolution == "Monthly":
+    plot_combined = combined.resample("MS").mean()
 else:
     plot_combined = combined
 # ------------------------------------------------------------------
 # Plots
 # ------------------------------------------------------------------
 
-with right_col:
-    st.subheader("Time series")
+with results_container:
+    st.subheader("Results")
     metric_1, metric_2, metric_3 = st.columns(3)
     metric_1.metric("Overall correlation", f"{overall_corr:.3f}")
     metric_2.metric("Applied lag", f"{lag_hours} h")
     metric_3.metric("Hourly observations", f"{len(combined):,}")
 
-
+    st.subheader("Weather and energy over time")
     fig_ts = make_subplots(specs=[[{"secondary_y": True}]])
 
     fig_ts.add_trace(
@@ -282,7 +265,7 @@ with right_col:
 
     st.plotly_chart(fig_ts, use_container_width=True)
 
-    st.subheader("Sliding window correlation")
+    st.subheader("Sliding-window correlation")
 
     fig_corr = go.Figure()
     fig_corr.add_trace(
@@ -312,14 +295,18 @@ with right_col:
     )
 
     st.plotly_chart(fig_corr, use_container_width=True)
+    st.caption(
+        "Correlation ranges from -1 to 1. Values near 1 move together, values near "
+        "-1 move in opposite directions, and values near 0 show little linear relationship."
+    )
 
     st.markdown(
         f"""
 **Summary**
 
-- Overall Pearson correlation (full year, with lag {lag_hours} h): `{overall_corr:.3f}`
+- Overall Pearson correlation (selected period, with lag {lag_hours} h): `{overall_corr:.3f}`
 - Rolling window: `{window_days}` days (`{window_hours}` hours)
 - Meteo series: **{meteo_label}**
-- Energy series: **{energy_series_name}** in **{area}**, year **{year}**
+- Energy series: **{energy_series_name}** in **{area}**
 """
     )

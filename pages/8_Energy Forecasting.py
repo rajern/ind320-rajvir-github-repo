@@ -4,6 +4,7 @@ import streamlit as st
 import plotly.graph_objects as go
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
+from src.analysis_context import render_analysis_context
 from src.data_loader import (
     load_elhub_production_data,
     load_elhub_consumption_data,
@@ -134,22 +135,29 @@ def build_forecast_figure(
 
 # ---------- Streamlit page ---------- #
 
+context = render_analysis_context(
+    show_period=False,
+    show_resolution=False,
+    show_location=False,
+)
+
 st.title("Energy forecasting")
 st.caption(
     "Fit a configurable SARIMAX model to hourly or daily energy data and compare fitted values, "
     "forecasts and confidence intervals."
 )
+st.markdown(f"**Active selection:** {context.price_area}")
 
 # Load data once (cached in data_loader)
 prod_df = load_elhub_production_data()
 cons_df = load_elhub_consumption_data()
 
-# Layout: controls on the left, plot on the right
-left_col, right_col = st.columns([1, 2.4])
+st.divider()
+st.subheader("Analysis settings")
+settings_container = st.container()
+results_container = st.container()
 
-with left_col:
-    st.header("Forecast setup")
-
+with settings_container:
     dataset_type = st.radio(
         "Dataset",
         ["Production", "Consumption"],
@@ -168,14 +176,10 @@ with left_col:
         st.error("No price areas are available in the selected dataset.")
         st.stop()
 
-    current_area = st.session_state.get("pricearea", areas[0])
-    area = st.radio(
-        "Price area",
-        areas,
-        index=areas.index(current_area) if current_area in areas else 0,
-        horizontal=True,
-    )
-    st.session_state["pricearea"] = area
+    area = context.price_area
+    if area not in areas:
+        st.error(f"No data are available for the active price area {area}.")
+        st.stop()
 
     groups = sorted(
         df.loc[df["pricearea"] == area, group_col].dropna().unique().tolist()
@@ -274,8 +278,8 @@ with left_col:
 
     run_forecast = st.button("Run forecast", type="primary")
 
-with right_col:
-    st.header("Forecast")
+with results_container:
+    st.subheader("Results")
 
     if not run_forecast:
         st.info(
@@ -329,5 +333,6 @@ with right_col:
             )
             st.plotly_chart(fig, use_container_width=True)
             st.caption(
-                "The shaded interval represents model uncertainty. This is a portfolio demonstration, not an operational forecast."
+                "The shaded interval represents model uncertainty. This is a portfolio "
+                "demonstration, not an operational forecast."
             )
