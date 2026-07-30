@@ -28,6 +28,26 @@ df_period = df[
     & (df["starttime"] < end_ts)
 ]
 
+if df_period.empty:
+    st.warning("No production data found for the active selection.")
+    st.stop()
+
+groups_in_area = sorted(
+    df_period["productiongroup"].dropna().unique().tolist()
+)
+
+st.divider()
+st.subheader("Analysis settings")
+selected_groups = st.pills(
+    "Groups shown in the time series",
+    options=groups_in_area,
+    selection_mode="multi",
+    default=groups_in_area,
+)
+st.caption("The production-share chart includes all available groups in the selected period.")
+
+st.subheader("Results")
+
 # Split the layout into two columns
 left_col, right_col = st.columns(2)
 
@@ -35,65 +55,45 @@ left_col, right_col = st.columns(2)
 with left_col:
     st.subheader("Share by group")
 
-    if df_period.empty:
-        st.warning("No production data found for the active selection.")
-    else:
-        # Aggregate energy per production group
-        pie_data = (
-            df_period
-            .groupby("productiongroup", as_index=False)["quantitykwh"]
-            .sum()
-            .assign(productiongroup=lambda data: data["productiongroup"].str.title())
-            .assign(gwh=lambda data: data["quantitykwh"] / 1_000_000)
-            .sort_values("gwh", ascending=True)
-        )
+    pie_data = (
+        df_period
+        .groupby("productiongroup", as_index=False)["quantitykwh"]
+        .sum()
+        .assign(productiongroup=lambda data: data["productiongroup"].str.title())
+        .assign(gwh=lambda data: data["quantitykwh"] / 1_000_000)
+        .sort_values("gwh", ascending=True)
+    )
 
-        total_gwh = pie_data["gwh"].sum()
-        dominant = pie_data.iloc[-1]
-        metric_1, metric_2 = st.columns(2)
-        metric_1.metric("Total production", f"{total_gwh:,.0f} GWh")
-        metric_2.metric(
-            "Largest group",
-            dominant["productiongroup"],
-            f"{dominant['gwh'] / total_gwh:.0%} of total",
-        )
+    total_gwh = pie_data["gwh"].sum()
+    dominant = pie_data.iloc[-1]
+    metric_1, metric_2 = st.columns(2)
+    metric_1.metric("Total production", f"{total_gwh:,.0f} GWh")
+    metric_2.metric(
+        "Largest group",
+        dominant["productiongroup"],
+        f"{dominant['gwh'] / total_gwh:.0%} of total",
+    )
 
-        fig_pie = px.bar(
-            pie_data,
-            x="gwh",
-            y="productiongroup",
-            orientation="h",
-            labels={"gwh": "Production (GWh)", "productiongroup": ""},
-            text_auto=".3s",
+    fig_pie = px.bar(
+        pie_data,
+        x="gwh",
+        y="productiongroup",
+        orientation="h",
+        labels={"gwh": "Production (GWh)", "productiongroup": ""},
+        text_auto=".3s",
+    )
+    fig_pie.update_layout(showlegend=False, margin=dict(l=20, r=20, t=50, b=20))
+    fig_pie.update_layout(
+        title=(
+            f"{area} | {context.start_date:%d %b} - "
+            f"{context.end_date:%d %b %Y}"
         )
-        fig_pie.update_layout(showlegend=False, margin=dict(l=20, r=20, t=50, b=20))
-        fig_pie.update_layout(
-            title=(
-                f"{area} | {context.start_date:%d %b} - "
-                f"{context.end_date:%d %b %Y}"
-            )
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
+    )
+    st.plotly_chart(fig_pie, use_container_width=True)
 
 # ---- Right: time series by production group ----
 with right_col:
     st.subheader("Production over time")
-
-    # All production groups that exist in this price area
-    groups_in_area = sorted(
-        df.loc[df["pricearea"] == area, "productiongroup"]
-        .dropna()
-        .unique()
-        .tolist()
-    )
-
-    # Pills for selecting one or more production groups
-    selected_groups = st.pills(
-        "Production group(s)",
-        options=groups_in_area,
-        selection_mode="multi",
-        default=groups_in_area,
-    )
 
     # Filter by the shared context and chosen groups
     mask = (
@@ -103,6 +103,8 @@ with right_col:
     )
     if selected_groups:
         mask &= df["productiongroup"].isin(selected_groups)
+    else:
+        mask &= False
 
     # Aggregate energy using the shared time resolution
     df_series = (
@@ -139,6 +141,9 @@ with right_col:
             margin=dict(l=20, r=20, t=70, b=20),
         )
         st.plotly_chart(fig_line, use_container_width=True)
+        st.caption(
+            f"Values are aggregated to {context.resolution.lower()} totals for each production group."
+        )
 
 # ---- Expander with short documentation ----
 with st.expander("About"):

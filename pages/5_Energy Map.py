@@ -158,6 +158,7 @@ def main() -> None:
             include_location=False,
         )
     )
+    st.divider()
 
     try:
         geojson = load_pricearea_geojson()
@@ -167,7 +168,7 @@ def main() -> None:
 
     selected_pricearea = context.price_area
 
-    st.subheader("Data selection")
+    st.subheader("Analysis settings")
     col_1, col_2 = st.columns(2)
     with col_1:
         data_type_label = st.radio(
@@ -188,12 +189,16 @@ def main() -> None:
     end_ts = pd.Timestamp(context.end_date) + pd.Timedelta(days=1)
     df_mean = mean_by_pricearea(kind, group, start_ts, end_ts)
 
+    st.subheader("Energy comparison")
     if df_mean.empty:
         st.warning("No data are available for this type, group and time interval.")
     else:
         metric_1, metric_2 = st.columns(2)
         metric_1.metric("Areas with data", f"{len(df_mean)} of 5")
         metric_2.metric("Highest area mean", f"{df_mean['mean_gwh'].max():,.2f} GWh")
+        st.caption(
+            "The map compares mean hourly energy for the selected group over the shared period."
+        )
 
     st.subheader("Choose weather location")
     st.write(

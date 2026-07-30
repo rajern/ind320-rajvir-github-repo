@@ -185,13 +185,16 @@ groups = sorted(
       .tolist()
 )
 
+st.divider()
+st.subheader("Choose analysis")
+
 # ---- Tabs for STL and Spectrogram ----
 tab_stl, tab_spec = st.tabs(["STL decomposition", "Spectrogram"])
 
 with tab_stl:
-    st.subheader("STL decomposition")
     st.write("Separate the observed series into trend, recurring seasonality and residual variation.")
 
+    st.subheader("Analysis settings")
     group = st.selectbox("Production group", groups)
     with st.expander("Advanced settings"):
         period = st.number_input("Period (hours)", min_value=1, value=24, step=1)
@@ -214,15 +217,16 @@ with tab_stl:
                     trend=trend,
                     robust=robust,
                 )
+            st.subheader("Results")
             st.plotly_chart(fig_stl, use_container_width=True)
             st.caption("Observed = trend + seasonal component + residual. Large residuals are variation not captured by the selected pattern.")
         except ValueError as exc:
             st.warning(str(exc))
 
 with tab_spec:
-    st.subheader("Spectrogram")
     st.write("Inspect how the strength of recurring frequencies changes over time.")
 
+    st.subheader("Analysis settings")
     group_spec = st.selectbox("Production group", groups, key="spec_group")
     with st.expander("Advanced settings"):
         window_length = st.number_input(
@@ -253,6 +257,7 @@ with tab_spec:
                     window_length=window_length,
                     window_overlap=window_overlap,
                 )
+            st.subheader("Results")
             st.plotly_chart(fig_spec, use_container_width=True)
             st.caption("Brighter bands indicate frequencies with stronger energy during that part of the year.")
         except ValueError as exc:
