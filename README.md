@@ -2,7 +2,7 @@
 
 An interactive Streamlit application for exploring relationships between Norwegian electricity production, consumption and weather conditions.
 
-[Open the live application](https://ind320-rajvir-app-repo-cmhz46bwwk9apw8zvbaxa2.streamlit.app/)
+**[Open the live application](https://ind320-rajvir-app-repo-cmhz46bwwk9apw8zvbaxa2.streamlit.app/)**
 
 ## Overview
 
@@ -21,6 +21,14 @@ The application is designed around Norway's five electricity price areas and use
 - Estimate snow transport and visualize directional exposure.
 - Generate configurable SARIMAX-based energy forecasts.
 
+## Technical design
+
+- Multi-page Streamlit interface with grouped navigation and a shared analysis context.
+- Cached data loaders for MongoDB and the Open-Meteo Historical Weather API.
+- Interactive Plotly charts and Folium maps with consistent cross-page selections.
+- Statistical methods including STL, spectrograms, SPC, Local Outlier Factor, rolling correlations and SARIMAX.
+- Explicit empty, loading and error states for analyses that depend on external services.
+
 ## Data sources
 
 - **Elhub:** Norwegian electricity production and consumption data, accessed from a MongoDB collection prepared for the project.
@@ -32,12 +40,15 @@ External data remains the property of its respective providers and may be subjec
 ## Project structure
 
 ```text
-Home.py             Streamlit entry point
-pages/              Interactive analysis pages
-src/data_loader.py  Cached data access and API integrations
-src/Snow_drift.py   Snow-transport calculations
-data/               Local weather subset and price-area geometry
-requirements.txt    Python dependencies
+Home.py                            Streamlit entry point and navigation
+pages/                             Interactive analysis pages
+src/analysis_context.py            Shared filters and cross-page state
+src/data_loader.py                 Cached data access and API integrations
+src/Snow_drift.py                  Snow-transport calculations
+data/                              Weather subset and price-area geometry
+.streamlit/config.toml             Shared visual theme
+.streamlit/secrets.example.toml    Safe configuration example
+requirements.txt                   Python dependencies
 ```
 
 ## Run locally
@@ -73,7 +84,7 @@ Install the dependencies:
 pip install -r requirements.txt
 ```
 
-Create `.streamlit/secrets.toml` and add your MongoDB connection string:
+Copy `.streamlit/secrets.example.toml` to `.streamlit/secrets.toml`, then replace the placeholder with your MongoDB connection string:
 
 ```toml
 MONGODB_URI = "mongodb+srv://<username>:<password>@<cluster>/"
