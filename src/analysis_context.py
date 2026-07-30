@@ -57,6 +57,9 @@ def _weather_location(price_area: str) -> tuple[float, float, str, str]:
     ):
         latitude = float(map_coord["lat"])
         longitude = float(map_coord["lon"])
+        source = st.session_state.get("location_selection_source", "map")
+        if source == "manual":
+            return latitude, longitude, "Manual coordinates", "manual"
         return latitude, longitude, "Selected map point", "map"
 
     latitude, longitude, label = AREA_LOCATIONS[price_area]
@@ -99,6 +102,8 @@ def render_analysis_context() -> AnalysisContext:
     st.sidebar.caption(f"{location_label} | {latitude:.4f}, {longitude:.4f}")
     if location_source == "representative":
         st.sidebar.caption("Representative point for the selected price area.")
+    elif location_source == "manual":
+        st.sidebar.caption("Coordinates entered manually on the Energy Map.")
     else:
         st.sidebar.caption("Point selected on the Energy Map.")
 

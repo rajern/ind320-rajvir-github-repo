@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
 
+from src.analysis_context import AREA_LOCATIONS, PRICE_AREAS
 from src.data_loader import (
     load_elhub_consumption_data,
     load_elhub_production_data,
@@ -15,7 +16,17 @@ from src.data_loader import (
 )
 
 PRICEAREA_GEO_KEY = "ElSpotOmr"
-VALID_PRICEAREAS = {"NO1", "NO2", "NO3", "NO4", "NO5"}
+
+
+def coordinate_from_map_state(map_state: dict | None) -> dict[str, float] | None:
+    if not map_state or not map_state.get("last_clicked"):
+        return None
+    click = map_state["last_clicked"]
+    return {"lat": float(click["lat"]), "lon": float(click["lng"])}
+
+
+def coordinate_key(coord: dict[str, float]) -> tuple[float, float]:
+    return round(coord["lat"], 6), round(coord["lon"], 6)
 
 
 def get_groups(kind: str) -> list[str]:
@@ -62,7 +73,9 @@ def build_map(
     geojson: dict,
     df_mean: pd.DataFrame,
     selected_pricearea: str,
-    clicked_coord: dict | None,
+    marker_coord: dict | None,
+    marker_label: str,
+    marker_color: str,
 ) -> folium.Map:
     geojson_copy = deepcopy(geojson)
     values = (
@@ -115,13 +128,14 @@ def build_map(
         ),
     ).add_to(energy_map)
 
-    if clicked_coord is not None:
+    if marker_coord is not None:
         folium.Marker(
-            location=[clicked_coord["lat"], clicked_coord["lon"]],
+            location=[marker_coord["lat"], marker_coord["lon"]],
             popup=(
-                f"Selected point: {clicked_coord['lat']:.4f}, "
-                f"{clicked_coord['lon']:.4f}"
+                f"{marker_label}: {marker_coord['lat']:.4f}, "
+                f"{marker_coord['lon']:.4f}"
             ),
+            icon=folium.Icon(color=marker_color),
         ).add_to(energy_map)
 
     return energy_map
@@ -140,7 +154,7 @@ def main() -> None:
         st.stop()
 
     selected_pricearea = st.session_state.get("pricearea", "NO2")
-    if selected_pricearea not in VALID_PRICEAREAS:
+    if selected_pricearea not in PRICE_AREAS:
         selected_pricearea = "NO2"
 
     st.subheader("Data selection")
@@ -178,15 +192,42 @@ def main() -> None:
         metric_1.metric("Areas with data", f"{len(df_mean)} of 5")
         metric_2.metric("Highest area mean", f"{df_mean['mean_gwh'].max():,.2f} GWh")
 
-    st.subheader("Map and location selection")
-    st.write("Click the map to store a coordinate. The red outline is the price area selected in Energy Explorer.")
+    st.subheader("Choose weather location")
+    st.write(
+        "Click the map, review the coordinates, and confirm the point before it is "
+        "used by Weather Explorer and Snow Drift. The red outline is the shared price area."
+    )
 
-    clicked_coord = st.session_state.get("map_coord")
+    stored_coord = st.session_state.get("map_coord")
+    pending_coord = st.session_state.get("pending_map_coord")
+    representative_lat, representative_lon, representative_name = AREA_LOCATIONS[
+        selected_pricearea
+    ]
+
+    if stored_coord is None:
+        st.info(
+            f"Current weather location: {representative_name} "
+            f"({representative_lat:.4f}, {representative_lon:.4f}), the representative "
+            f"point for {selected_pricearea}."
+        )
+    else:
+        stored_source = st.session_state.get("location_selection_source", "map")
+        source_label = "Manual coordinates" if stored_source == "manual" else "Map selection"
+        st.success(
+            f"Saved weather location: {stored_coord['lat']:.4f}, "
+            f"{stored_coord['lon']:.4f} ({source_label})."
+        )
+
+    marker_coord = pending_coord or stored_coord
+    marker_label = "Pending selection" if pending_coord else "Saved location"
+    marker_color = "orange" if pending_coord else "green"
     folium_map = build_map(
         geojson=geojson,
         df_mean=df_mean,
         selected_pricearea=selected_pricearea,
-        clicked_coord=clicked_coord,
+        marker_coord=marker_coord,
+        marker_label=marker_label,
+        marker_color=marker_color,
     )
     map_state = st_folium(
         folium_map,
@@ -196,18 +237,75 @@ def main() -> None:
         key="energy_map",
     )
 
-    if map_state and map_state.get("last_clicked"):
-        click = map_state["last_clicked"]
-        st.session_state["map_coord"] = {"lat": click["lat"], "lon": click["lng"]}
-        clicked_coord = st.session_state["map_coord"]
+    clicked_coord = coordinate_from_map_state(map_state)
+    if clicked_coord is not None:
+        clicked_key = coordinate_key(clicked_coord)
+        if clicked_key != st.session_state.get("last_processed_map_click"):
+            st.session_state["last_processed_map_click"] = clicked_key
+            st.session_state["pending_map_coord"] = clicked_coord
+            st.rerun()
 
-    if clicked_coord is None:
-        st.info("No coordinate is stored yet. Click the map before opening Snow Drift.")
-    else:
-        st.success(
-            f"Stored coordinate: {clicked_coord['lat']:.4f}, {clicked_coord['lon']:.4f}"
+    pending_coord = st.session_state.get("pending_map_coord")
+    stored_coord = st.session_state.get("map_coord")
+
+    if pending_coord is not None:
+        st.warning(
+            f"Point ready to confirm: {pending_coord['lat']:.4f}, "
+            f"{pending_coord['lon']:.4f}."
         )
-        st.page_link("pages/6_Snow Drift.py", label="Continue to Snow Drift")
+        confirm_col, discard_col = st.columns(2)
+        if confirm_col.button("Use selected point", type="primary"):
+            st.session_state["map_coord"] = pending_coord
+            st.session_state["location_selection_source"] = "map"
+            st.session_state.pop("pending_map_coord", None)
+            st.rerun()
+        if discard_col.button("Discard map click"):
+            st.session_state.pop("pending_map_coord", None)
+            st.rerun()
+    elif stored_coord is not None:
+        continue_col, reset_col = st.columns(2)
+        with continue_col:
+            st.page_link("pages/6_Snow Drift.py", label="Continue to Snow Drift")
+        if reset_col.button("Use representative location instead"):
+            st.session_state.pop("map_coord", None)
+            st.session_state.pop("location_selection_source", None)
+            st.rerun()
+    else:
+        st.caption("No custom point is saved. Click the map or enter coordinates below.")
+
+    default_coord = stored_coord or pending_coord or {
+        "lat": representative_lat,
+        "lon": representative_lon,
+    }
+    if "manual_location_latitude" not in st.session_state:
+        st.session_state["manual_location_latitude"] = float(default_coord["lat"])
+    if "manual_location_longitude" not in st.session_state:
+        st.session_state["manual_location_longitude"] = float(default_coord["lon"])
+
+    with st.expander("Enter coordinates manually"):
+        manual_col_1, manual_col_2 = st.columns(2)
+        manual_latitude = manual_col_1.number_input(
+            "Latitude",
+            min_value=-90.0,
+            max_value=90.0,
+            format="%.4f",
+            key="manual_location_latitude",
+        )
+        manual_longitude = manual_col_2.number_input(
+            "Longitude",
+            min_value=-180.0,
+            max_value=180.0,
+            format="%.4f",
+            key="manual_location_longitude",
+        )
+        if st.button("Use manual coordinates", type="primary"):
+            st.session_state["map_coord"] = {
+                "lat": float(manual_latitude),
+                "lon": float(manual_longitude),
+            }
+            st.session_state["location_selection_source"] = "manual"
+            st.session_state.pop("pending_map_coord", None)
+            st.rerun()
 
     if not df_mean.empty:
         with st.expander("View underlying area values"):
