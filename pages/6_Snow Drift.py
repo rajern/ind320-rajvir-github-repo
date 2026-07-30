@@ -90,16 +90,16 @@ def prepare_snowdrift_dataframe(
     df.rename(
         columns={
             "time": "time",
-            "temperature_2m": "temperature_2m (°C)",
+            "temperature_2m": "temperature_2m (?C)",
             "precipitation": "precipitation (mm)",
             "wind_speed_10m": "wind_speed_10m (m/s)",
-            "wind_direction_10m": "wind_direction_10m (°)",
+            "wind_direction_10m": "wind_direction_10m (?)",
         },
         inplace=True,
     )
 
-    # Create season label: July–December belong to current year,
-    # January–June belong to previous year.
+    # Create season label: July?December belong to current year,
+    # January?June belong to previous year.
     df["season"] = df["time"].apply(
         lambda dt: dt.year if dt.month >= 7 else dt.year - 1
     )
@@ -200,7 +200,7 @@ def plot_wind_rose(avg_sector_values: np.ndarray, overall_avg_kgm: float):
                 tickvals=theta_deg,
                 ticktext=directions,
                 direction="clockwise",
-                rotation=90,  # 0° = North
+                rotation=90,  # 0? = North
             ),
             radialaxis=dict(
                 angle=90,
@@ -231,14 +231,24 @@ def main() -> None:
     # --- Coordinate from Energy Map page ---
     coord = get_map_coordinate()
     if coord is None:
-        st.warning(
-            "No coordinate found. Please select a point on the Energy Map page first. "
-            "The snow-drift calculation cannot run without a location."
-        )
+        st.warning("A coordinate is required before the snow-drift calculation can run.")
+        st.page_link("pages/5_Energy Map.py", label="Open Energy Map and select a point")
+
+        with st.expander("Enter coordinates manually"):
+            manual_col_1, manual_col_2 = st.columns(2)
+            manual_lat = manual_col_1.number_input(
+                "Latitude", min_value=-90.0, max_value=90.0, value=60.0, format="%.4f"
+            )
+            manual_lon = manual_col_2.number_input(
+                "Longitude", min_value=-180.0, max_value=180.0, value=10.0, format="%.4f"
+            )
+            if st.button("Use these coordinates", type="primary"):
+                st.session_state["map_coord"] = {"lat": manual_lat, "lon": manual_lon}
+                st.rerun()
         st.stop()
 
     lat, lon = coord
-    st.info(f"Using coordinate from Energy Map: lat={lat:.4f}, lon={lon:.4f}")
+    st.info(f"Selected coordinate: {lat:.4f}, {lon:.4f}")
 
     # --- User controls: seasons and model parameters ---
     st.subheader("Season and model settings")
@@ -274,7 +284,7 @@ def main() -> None:
             step=1000.0,
         )
         theta = st.slider(
-            "Relocation coefficient θ",
+            "Relocation coefficient ?",
             min_value=0.0,
             max_value=1.0,
             value=0.5,
@@ -282,8 +292,8 @@ def main() -> None:
         )
 
     st.write(
-        f"Seasons included: **{start_season}–{start_season + 1}** "
-        f"to **{end_season}–{end_season + 1}**."
+        f"Seasons included: **{start_season}?{start_season + 1}** "
+        f"to **{end_season}?{end_season + 1}**."
     )
 
     compute_btn = st.button("Compute snow drift")
@@ -327,21 +337,45 @@ def main() -> None:
         st.warning("Snow-drift calculation returned no yearly results.")
         st.stop()
 
-    # Show table with yearly Qt and control type
     yearly_df_display = yearly_df.copy()
-    yearly_df_display["Qt (tonnes/m)"] = yearly_df_display["Qt (kg/m)"] / 1000.0
+    yearly_df_display["Snow transport (tonnes/m)"] = yearly_df_display["Qt (kg/m)"] / 1000.0
+    yearly_df_display = yearly_df_display.rename(
+        columns={
+            "season": "Season",
+            "Control": "Limiting factor",
+            "Qupot (kg/m)": "Wind potential (kg/m)",
+            "Qspot (kg/m)": "Snowfall potential (kg/m)",
+        }
+    )
+
+    overall_avg = float(yearly_df["Qt (kg/m)"].mean())
+    metric_1, metric_2 = st.columns(2)
+    metric_1.metric("Average seasonal transport", f"{overall_avg / 1000:,.1f} tonnes/m")
+    metric_2.metric("Seasons analysed", f"{len(yearly_df):,}")
 
     st.subheader("Yearly snow transport per season")
     st.dataframe(
         yearly_df_display[
-            ["season", "Qt (tonnes/m)", "Control", "Qupot (kg/m)", "Qspot (kg/m)"]
+            [
+                "Season",
+                "Snow transport (tonnes/m)",
+                "Limiting factor",
+                "Wind potential (kg/m)",
+                "Snowfall potential (kg/m)",
+            ]
         ],
+        hide_index=True,
         use_container_width=True,
+        column_config={
+            "Snow transport (tonnes/m)": st.column_config.NumberColumn(format="%.1f"),
+            "Wind potential (kg/m)": st.column_config.NumberColumn(format="%.0f"),
+            "Snowfall potential (kg/m)": st.column_config.NumberColumn(format="%.0f"),
+        },
     )
 
     # --- Plot yearly Qt with Plotly ---
     fig_yearly = plot_yearly_snow_transport(yearly_df)
-    st.plotly_chart(fig_yearly, use_container_width=False)
+    st.plotly_chart(fig_yearly, use_container_width=True)
 
     # --- Wind rose with Plotly ---
     st.subheader("Wind rose for snow transport")
@@ -350,7 +384,7 @@ def main() -> None:
     overall_avg = float(yearly_df["Qt (kg/m)"].mean())
 
     fig_rose = plot_wind_rose(avg_sectors, overall_avg_kgm=overall_avg)
-    st.plotly_chart(fig_rose, use_container_width=False)
+    st.plotly_chart(fig_rose, use_container_width=True)
 
 
 if __name__ == "__main__":

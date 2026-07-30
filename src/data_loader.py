@@ -14,7 +14,7 @@ def load_open_meteo() -> pd.DataFrame:
     return df
 
 # Cache function for loading production data from MongoDB (elhub2021 / production_per_group_hour)
-@st.cache_data
+@st.cache_data(show_spinner="Loading production data...")
 def load_elhub_production_data() -> pd.DataFrame:
     """
     Load production_per_group_hour from MongoDB (all years).
@@ -31,7 +31,7 @@ def load_elhub_production_data() -> pd.DataFrame:
     return df
 
 # Cache function for loading consumption data from MongoDB (elhub2021 / consumption_per_group_hour)
-@st.cache_data
+@st.cache_data(show_spinner="Loading consumption data...")
 def load_elhub_consumption_data() -> pd.DataFrame:
     """
     Load consumption_per_group_hour from MongoDB (all years).
@@ -48,7 +48,7 @@ def load_elhub_consumption_data() -> pd.DataFrame:
     return df
 
 # Cache function for loading Open-Meteo data from the API
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner="Loading weather data...")
 def load_open_meteo_api(
     latitude: float,
     longitude: float,

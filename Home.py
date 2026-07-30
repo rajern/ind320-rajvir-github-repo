@@ -1,11 +1,15 @@
 import streamlit as st
 
+from src.analysis_context import context_caption, render_analysis_context
+
 st.set_page_config(
     page_title="Norwegian Energy & Weather Analytics",
     page_icon="\u26A1",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+context = render_analysis_context()
 
 st.title("Norwegian Energy & Weather Analytics")
 st.markdown(
@@ -17,10 +21,11 @@ st.info(
     "**Data scope:** Most views focus on historical data from 2021. "
     "The dashboard is an analytical portfolio project, not a live operational system."
 )
+st.markdown(context_caption(context))
 
 st.subheader("What you can explore")
 
-energy_col, weather_col, relationship_col = st.columns(3)
+energy_col, weather_col = st.columns(2)
 
 with energy_col:
     st.markdown("### Energy system")
@@ -36,7 +41,7 @@ with weather_col:
         "snow transport for a selected location."
     )
 
-with relationship_col:
+with st.container():
     st.markdown("### Patterns and relationships")
     st.write(
         "Study seasonality, frequency patterns and lagged relationships between "
@@ -46,9 +51,9 @@ with relationship_col:
 st.subheader("Getting started")
 st.markdown(
     """
-1. Open **Energy Explorer** from the sidebar.
-2. Select a Norwegian price area; related pages reuse this selection.
-3. Continue through the focused analysis pages or choose another view directly.
+1. Set the shared price area, period and time resolution under **Analysis context**.
+2. Open **Energy Explorer** or **Weather Explorer** to test the shared selection.
+3. A point selected on **Energy Map** replaces the representative weather location.
     """
 )
 

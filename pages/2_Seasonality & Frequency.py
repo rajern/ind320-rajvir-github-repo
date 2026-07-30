@@ -174,62 +174,74 @@ groups = sorted(
 )
 
 # ---- Tabs for STL and Spectrogram ----
-tab_stl, tab_spec = st.tabs(["STL", "Spectrogram"])
+tab_stl, tab_spec = st.tabs(["STL decomposition", "Spectrogram"])
 
-# ---------------- STL tab ----------------
 with tab_stl:
     st.subheader("STL decomposition")
+    st.write("Separate the observed series into trend, recurring seasonality and residual variation.")
 
     group = st.selectbox("Production group", groups)
+    with st.expander("Advanced settings"):
+        period = st.number_input("Period (hours)", min_value=1, value=24, step=1)
+        seasonal = st.number_input("Seasonal smoother", min_value=3, value=13, step=1)
+        trend = st.number_input("Trend smoother", min_value=3, value=365, step=1)
+        robust = st.checkbox("Use robust fitting", value=True)
 
-    period = st.number_input("Period (hours)", min_value=1, value=24, step=1)
-    seasonal = st.number_input("Seasonal smoother", min_value=3, value=13, step=1)
-    trend = st.number_input("Trend smoother", min_value=3, value=365, step=1)
-    robust = st.checkbox("Robust", value=True)
+    run_stl = st.button("Run STL analysis", type="primary")
+    if not run_stl:
+        st.info("Choose a production group and run the analysis. Default settings represent a daily pattern.")
+    else:
+        try:
+            with st.spinner("Computing STL decomposition..."):
+                fig_stl, _ = plot_stl_elhub(
+                    df,
+                    area=current_area,
+                    group=group,
+                    period=period,
+                    seasonal=seasonal,
+                    trend=trend,
+                    robust=robust,
+                )
+            st.plotly_chart(fig_stl, use_container_width=True)
+            st.caption("Observed = trend + seasonal component + residual. Large residuals are variation not captured by the selected pattern.")
+        except ValueError as exc:
+            st.warning(str(exc))
 
-    try:
-        fig_stl, result = plot_stl_elhub(
-            df,
-            area=current_area,
-            group=group,
-            period=period,
-            seasonal=seasonal,
-            trend=trend,
-            robust=robust,
-        )
-        st.plotly_chart(fig_stl, use_container_width=False)
-    except ValueError as e:
-        st.warning(str(e))
-
-# ---------------- Spectrogram tab ----------------
 with tab_spec:
     st.subheader("Spectrogram")
+    st.write("Inspect how the strength of recurring frequencies changes over time.")
 
     group_spec = st.selectbox("Production group", groups, key="spec_group")
-
-    window_length = st.number_input(
-        "Window length (hours)",
-        min_value=24,
-        max_value=24 * 60,
-        value=24 * 7,
-        step=24,
-    )
-    window_overlap = st.slider(
-        "Window overlap",
-        min_value=0.0,
-        max_value=0.9,
-        value=0.5,
-        step=0.1,
-    )
-
-    try:
-        fig_spec, _ = plot_spectrogram_elhub(
-            df,
-            area=current_area,
-            group=group_spec,
-            window_length=window_length,
-            window_overlap=window_overlap,
+    with st.expander("Advanced settings"):
+        window_length = st.number_input(
+            "Window length (hours)",
+            min_value=24,
+            max_value=24 * 60,
+            value=24 * 7,
+            step=24,
         )
-        st.plotly_chart(fig_spec, use_container_width=False)
-    except ValueError as e:
-        st.warning(str(e))
+        window_overlap = st.slider(
+            "Window overlap",
+            min_value=0.0,
+            max_value=0.9,
+            value=0.5,
+            step=0.1,
+        )
+
+    run_spec = st.button("Run frequency analysis", type="primary")
+    if not run_spec:
+        st.info("Run the analysis to display the frequency pattern for the selected production group.")
+    else:
+        try:
+            with st.spinner("Computing spectrogram..."):
+                fig_spec, _ = plot_spectrogram_elhub(
+                    df,
+                    area=current_area,
+                    group=group_spec,
+                    window_length=window_length,
+                    window_overlap=window_overlap,
+                )
+            st.plotly_chart(fig_spec, use_container_width=True)
+            st.caption("Brighter bands indicate frequencies with stronger energy during that part of the year.")
+        except ValueError as exc:
+            st.warning(str(exc))

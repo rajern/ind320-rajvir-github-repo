@@ -18,12 +18,12 @@ PRICEAREA_COORDS = {
     "NO1": (59.91, 10.75),  # Oslo region
     "NO2": (58.97, 5.73),   # Stavanger region
     "NO3": (63.43, 10.40),  # Trondheim region
-    "NO4": (69.65, 18.96),  # Tromsø region
+    "NO4": (69.65, 18.96),  # Troms? region
     "NO5": (60.39, 5.32),   # Bergen region
 }
 
 METEO_OPTIONS = {
-    "Temperature 2m [°C]": "temperature_2m",
+    "Temperature 2m [?C]": "temperature_2m",
     "Precipitation [mm]": "precipitation",
     "Wind speed 10m [m/s]": "wind_speed_10m",
     "Wind gusts 10m [m/s]": "wind_gusts_10m",
@@ -37,8 +37,8 @@ st.title("Weather-energy relationships")
 
 st.caption(
     """
-This page compares meteorological conditions with electricity production and 
-consumption using a sliding window correlation.  
+This page compares meteorological conditions with electricity production and
+consumption using a sliding window correlation.
 Positive lag means **weather leads** the energy series (energy responds later).
 """
 )
@@ -119,7 +119,7 @@ with left_col:
     window_hours = window_days * 24
 
     lag_hours = st.slider(
-        "Lag (hours, weather → energy)",
+        "Lag (hours, weather ? energy)",
         min_value=-72,
         max_value=72,
         value=0,
@@ -130,6 +130,12 @@ with left_col:
         ),
     )
 
+    display_resolution = st.selectbox(
+        "Chart resolution",
+        ["Daily mean", "Hourly"],
+        index=0,
+        help="This changes only the time-series display, not the hourly correlation calculation.",
+    )
     st.caption(
         "Correlation is computed on hourly data. Series are aligned and NaNs dropped "
         "before calculating the rolling correlation."
@@ -169,14 +175,14 @@ if energy_mode == "Production":
         & (df_prod["productiongroup"] == energy_group)
         & (df_prod["starttime"].dt.year == year)
     ].copy()
-    energy_series_name = f"Production – {energy_group}"
+    energy_series_name = f"Production ? {energy_group}"
 else:
     df_energy = df_cons[
         (df_cons["pricearea"] == area)
         & (df_cons["consumptiongroup"] == energy_group)
         & (df_cons["starttime"].dt.year == year)
     ].copy()
-    energy_series_name = f"Consumption – {energy_group}"
+    energy_series_name = f"Consumption ? {energy_group}"
 
 if df_energy.empty:
     right_col.warning(
@@ -227,19 +233,29 @@ corr_series = (
 # Overall Pearson correlation for reference
 overall_corr = combined["meteo"].corr(combined["energy_lagged"])
 
+
+if display_resolution == "Daily mean":
+    plot_combined = combined.resample("D").mean()
+else:
+    plot_combined = combined
 # ------------------------------------------------------------------
 # Plots
 # ------------------------------------------------------------------
 
 with right_col:
     st.subheader("Time series")
+    metric_1, metric_2, metric_3 = st.columns(3)
+    metric_1.metric("Overall correlation", f"{overall_corr:.3f}")
+    metric_2.metric("Applied lag", f"{lag_hours} h")
+    metric_3.metric("Hourly observations", f"{len(combined):,}")
+
 
     fig_ts = make_subplots(specs=[[{"secondary_y": True}]])
 
     fig_ts.add_trace(
         go.Scatter(
-            x=combined.index,
-            y=combined["meteo"],
+            x=plot_combined.index,
+            y=plot_combined["meteo"],
             name=meteo_label,
             mode="lines",
         ),
@@ -248,8 +264,8 @@ with right_col:
 
     fig_ts.add_trace(
         go.Scatter(
-            x=combined.index,
-            y=combined["energy_lagged"],
+            x=plot_combined.index,
+            y=plot_combined["energy_lagged"] / 1_000_000,
             name=f"{energy_series_name} (lagged)",
             mode="lines",
         ),
@@ -262,7 +278,7 @@ with right_col:
     )
     fig_ts.update_xaxes(title_text="Time")
     fig_ts.update_yaxes(title_text=meteo_label, secondary_y=False)
-    fig_ts.update_yaxes(title_text="Quantity [kWh]", secondary_y=True)
+    fig_ts.update_yaxes(title_text="Average quantity (GWh)", secondary_y=True)
 
     st.plotly_chart(fig_ts, use_container_width=True)
 
@@ -301,9 +317,9 @@ with right_col:
         f"""
 **Summary**
 
-- Overall Pearson correlation (full year, with lag {lag_hours} h): `{overall_corr:.3f}`  
-- Rolling window: `{window_days}` days (`{window_hours}` hours)  
-- Meteo series: **{meteo_label}**  
+- Overall Pearson correlation (full year, with lag {lag_hours} h): `{overall_corr:.3f}`
+- Rolling window: `{window_days}` days (`{window_hours}` hours)
+- Meteo series: **{meteo_label}**
 - Energy series: **{energy_series_name}** in **{area}**, year **{year}**
 """
     )

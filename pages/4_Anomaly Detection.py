@@ -104,7 +104,7 @@ def plot_temperature_with_spc(
 
     fig.update_layout(
         xaxis_title="Time",
-        yaxis_title="Temperature (°C)",
+        yaxis_title="Temperature (?C)",
         legend_title=None,
         margin=dict(l=40, r=20, t=40, b=40),
     )
@@ -130,7 +130,7 @@ def plot_precipitation_with_lof(
     outlier_fraction=0.01,  # desired share of outliers (e.g. 0.01 = 1%)
     n_neighbors=20          # neighbors used by LOF
 ):
-    
+
     # Ensure chronological order and extract arrays
     df = df.sort_values(time_col).reset_index(drop=True)
     time = pd.to_datetime(df[time_col])
@@ -201,54 +201,37 @@ def plot_precipitation_with_lof(
 
 # Load Open-Meteo data based on price area
 AREA_COORDS = {
-    "NO1": (59.91390, 10.75220),  # Oslo
-    "NO2": (58.14670, 7.99560),   # Kristiansand
-    "NO3": (63.43050, 10.39510),  # Trondheim
-    "NO4": (69.64920, 18.95600),  # Tromsø
-    "NO5": (60.39299, 5.32415),   # Bergen
+    "NO1": (59.91390, 10.75220),
+    "NO2": (58.14670, 7.99560),
+    "NO3": (63.43050, 10.39510),
+    "NO4": (69.64920, 18.95600),
+    "NO5": (60.39299, 5.32415),
 }
 
-# Use shared selection from Energy Explorer
 pricearea = st.session_state.get("pricearea", "NO1")
 if pricearea not in AREA_COORDS:
     pricearea = "NO1"
 
 lat, lon = AREA_COORDS[pricearea]
+st.caption(f"Selected price area: **{pricearea}** (shared from Energy Explorer).")
 
-st.write(f"Current price area: **{pricearea}**")
-
-# Load hourly weather data for this area and 2021
 df = load_open_meteo_api(latitude=lat, longitude=lon, year=2021, area=pricearea)
-
-# Make a copy with an explicit date column to match the notebook functions
 df_plot = df.reset_index().rename(columns={"time": "date"})
 
+tab_spc, tab_lof = st.tabs(["Temperature (SPC)", "Precipitation (LOF)"])
 
-# ------------------------------------------------------------
-# Tabs: SPC (temperature) and LOF (precipitation)
-# ------------------------------------------------------------
-
-tab_spc, tab_lof = st.tabs(["SPC – temperature", "LOF – precipitation"])
-
-# ---------------- SPC tab ----------------
 with tab_spc:
-    st.subheader("DCT + SPC on temperature")
+    st.subheader("Unusual temperature observations")
+    st.write("The method removes a smooth seasonal trend, then flags residual variation outside robust control limits.")
 
-    c1, c2 = st.columns(2)
-    trend_keep_fraction = c1.number_input(
-        "Trend keep fraction",
-        min_value=0.001,
-        max_value=0.5,
-        value=0.02,
-        step=0.005,
-    )
-    sigma_threshold = c2.number_input(
-        "Sigma threshold",
-        min_value=1.0,
-        max_value=6.0,
-        value=3.0,
-        step=0.5,
-    )
+    with st.expander("Advanced settings"):
+        c1, c2 = st.columns(2)
+        trend_keep_fraction = c1.number_input(
+            "Trend keep fraction", min_value=0.001, max_value=0.5, value=0.02, step=0.005
+        )
+        sigma_threshold = c2.number_input(
+            "Sigma threshold", min_value=1.0, max_value=6.0, value=3.0, step=0.5
+        )
 
     fig_spc, summary_spc = plot_temperature_with_spc(
         df_plot,
@@ -257,28 +240,32 @@ with tab_spc:
         trend_keep_fraction=trend_keep_fraction,
         sigma_threshold=sigma_threshold,
     )
+    metric_1, metric_2, metric_3 = st.columns(3)
+    metric_1.metric("Observations", f"{summary_spc['n_points']:,}")
+    metric_2.metric("Flagged", f"{summary_spc['n_outliers']:,}")
+    metric_3.metric("Flagged share", f"{summary_spc['outlier_fraction']:.2%}")
     st.plotly_chart(fig_spc, use_container_width=True)
-    st.json(summary_spc)
 
-# ---------------- LOF tab ----------------
+    with st.expander("Technical diagnostics"):
+        st.write(f"Residual center: {summary_spc['satv_center']:.2f} \u00b0C")
+        st.write(f"Robust sigma: {summary_spc['robust_sigma']:.2f} \u00b0C")
+        st.write(
+            f"Residual limits: {summary_spc['satv_lower']:.2f} to "
+            f"{summary_spc['satv_upper']:.2f} \u00b0C"
+        )
+
 with tab_lof:
-    st.subheader("LOF on precipitation")
+    st.subheader("Unusual precipitation observations")
+    st.write("Local Outlier Factor flags hourly precipitation values that differ from nearby observations in the data distribution.")
 
-    c1, c2 = st.columns(2)
-    outlier_fraction = c1.number_input(
-        "Desired outlier fraction",
-        min_value=0.001,
-        max_value=0.2,
-        value=0.01,
-        step=0.005,
-    )
-    n_neighbors = c2.number_input(
-        "Number of neighbors",
-        min_value=5,
-        max_value=100,
-        value=20,
-        step=1,
-    )
+    with st.expander("Advanced settings"):
+        c1, c2 = st.columns(2)
+        outlier_fraction = c1.number_input(
+            "Expected outlier share", min_value=0.001, max_value=0.2, value=0.01, step=0.005
+        )
+        n_neighbors = c2.number_input(
+            "Number of neighbors", min_value=5, max_value=100, value=20, step=1
+        )
 
     fig_lof, summary_lof = plot_precipitation_with_lof(
         df_plot,
@@ -287,5 +274,17 @@ with tab_lof:
         outlier_fraction=outlier_fraction,
         n_neighbors=int(n_neighbors),
     )
+    metric_1, metric_2, metric_3 = st.columns(3)
+    metric_1.metric("Observations", f"{summary_lof['n_points']:,}")
+    metric_2.metric("Flagged", f"{summary_lof['n_outliers']:,}")
+    metric_3.metric("Flagged share", f"{summary_lof['outlier_fraction_estimated']:.2%}")
     st.plotly_chart(fig_lof, use_container_width=True)
-    st.json(summary_lof)
+
+    with st.expander("Technical diagnostics"):
+        if summary_lof["n_outliers"]:
+            st.write(
+                f"Flagged precipitation range: {summary_lof['precip_min_outlier']:.2f} to "
+                f"{summary_lof['precip_max_outlier']:.2f} mm"
+            )
+        else:
+            st.write("No observations were flagged with the selected settings.")

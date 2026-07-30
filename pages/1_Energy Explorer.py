@@ -1,80 +1,83 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+
+from src.analysis_context import context_caption, render_analysis_context
 from src.data_loader import load_elhub_production_data
+
+context = render_analysis_context()
 
 st.title("Energy explorer")
 st.caption(
-    "Explore hourly electricity production by price area, month and production group."
+    "Explore electricity production by price area, period and production group."
 )
+st.markdown(context_caption(context))
 
 # Load Elhub production data from MongoDB via cached helper
 df = load_elhub_production_data()
-YEAR = 2021
+area = context.price_area
+start_ts = pd.Timestamp(context.start_date)
+end_ts = pd.Timestamp(context.end_date) + pd.Timedelta(days=1)
+resolution_rule = {"Hourly": "h", "Daily": "D", "Monthly": "MS"}[
+    context.resolution
+]
 
-# Available price areas
-AREAS = sorted(df["pricearea"].dropna().unique().tolist())
-
-# Make sure we have a shared price area in session state
-if "pricearea" not in st.session_state:
-    st.session_state["pricearea"] = AREAS[0]
-
-# Radio buttons for price area (central selector for the whole app)
-area = st.radio(
-    "Price area",
-    AREAS,
-    index=AREAS.index(st.session_state["pricearea"]),
-    horizontal=True,
-)
-
-# Update session state whenever user changes selection
-st.session_state["pricearea"] = area
+df_period = df[
+    (df["pricearea"] == area)
+    & (df["starttime"] >= start_ts)
+    & (df["starttime"] < end_ts)
+]
 
 # Split the layout into two columns
 left_col, right_col = st.columns(2)
 
-# ---- Left: pie chart for 2021 ----
+# ---- Left: production share for the selected period ----
 with left_col:
-    st.subheader("Share by group (2021)")
+    st.subheader("Share by group")
 
-    # Filter to selected area and year
-    df_area_2021 = df[
-        (df["pricearea"] == area)
-        & (df["starttime"].dt.year == YEAR)
-    ]
-
-    if df_area_2021.empty:
-        st.warning("No data found for 2021.")
+    if df_period.empty:
+        st.warning("No production data found for the active selection.")
     else:
         # Aggregate energy per production group
         pie_data = (
-            df_area_2021
+            df_period
             .groupby("productiongroup", as_index=False)["quantitykwh"]
             .sum()
-            .rename(columns={"quantitykwh": "kwh"})
-            .sort_values("kwh", ascending=False)
+            .assign(productiongroup=lambda data: data["productiongroup"].str.title())
+            .assign(gwh=lambda data: data["quantitykwh"] / 1_000_000)
+            .sort_values("gwh", ascending=True)
         )
 
-        # Simple pie chart of share by group
-        fig_pie = px.pie(
-            pie_data,
-            names="productiongroup",
-            values="kwh",
+        total_gwh = pie_data["gwh"].sum()
+        dominant = pie_data.iloc[-1]
+        metric_1, metric_2 = st.columns(2)
+        metric_1.metric("Total production", f"{total_gwh:,.0f} GWh")
+        metric_2.metric(
+            "Largest group",
+            dominant["productiongroup"],
+            f"{dominant['gwh'] / total_gwh:.0%} of total",
         )
-        fig_pie.update_traces(textposition="inside", textinfo="percent+label")
-        fig_pie.update_layout(title=f"{area} – {YEAR}")
+
+        fig_pie = px.bar(
+            pie_data,
+            x="gwh",
+            y="productiongroup",
+            orientation="h",
+            labels={"gwh": "Production (GWh)", "productiongroup": ""},
+            text_auto=".3s",
+        )
+        fig_pie.update_layout(showlegend=False, margin=dict(l=20, r=20, t=50, b=20))
+        fig_pie.update_layout(
+            title=(
+                f"{area} | {context.start_date:%d %b} - "
+                f"{context.end_date:%d %b %Y}"
+            )
+        )
         st.plotly_chart(fig_pie, use_container_width=True)
 
-# ---- Right: line plot per month and production group ----
+# ---- Right: time series by production group ----
 with right_col:
-    st.subheader("Hourly lines by month")
-
-    # Simple month selector (1–12)
-    month = st.selectbox(
-        "Month",
-        list(range(1, 13)),
-        format_func=lambda m: f"{m:02d}",
-    )
+    st.subheader("Production over time")
 
     # All production groups that exist in this price area
     groups_in_area = sorted(
@@ -92,39 +95,54 @@ with right_col:
         default=groups_in_area,
     )
 
-    # Filter by area, year, month and chosen groups
+    # Filter by the shared context and chosen groups
     mask = (
         (df["pricearea"] == area)
-        & (df["starttime"].dt.year == YEAR)
-        & (df["starttime"].dt.month == month)
+        & (df["starttime"] >= start_ts)
+        & (df["starttime"] < end_ts)
     )
     if selected_groups:
         mask &= df["productiongroup"].isin(selected_groups)
 
-    # Aggregate hourly kWh per group (one line per group)
-    df_hourly = (
+    # Aggregate energy using the shared time resolution
+    df_series = (
         df[mask]
-        .groupby(["starttime", "productiongroup"], as_index=False)["quantitykwh"]
+        .groupby(
+            [
+                pd.Grouper(key="starttime", freq=resolution_rule),
+                "productiongroup",
+            ],
+            as_index=False,
+        )["quantitykwh"]
         .sum()
-        .rename(columns={"quantitykwh": "kwh"})
+        .assign(
+            productiongroup=lambda data: data["productiongroup"].str.title(),
+            gwh=lambda data: data["quantitykwh"] / 1_000_000,
+        )
     )
 
-    if df_hourly.empty:
-        st.info("No hourly data for this selection.")
+    if df_series.empty:
+        st.info("No production data for this selection.")
     else:
         fig_line = px.line(
-            df_hourly,
+            df_series,
             x="starttime",
-            y="kwh",
+            y="gwh",
             color="productiongroup",
+            labels={"starttime": "Time", "gwh": "Production (GWh)", "productiongroup": "Group"},
         )
         fig_line.update_layout(
-            title=f"{area} – {YEAR}-{month:02d}",
+            title=f"{area} | {context.resolution} production",
             xaxis_title="Time",
-            yaxis_title="kWh",
+            yaxis_title="Production (GWh)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+            margin=dict(l=20, r=20, t=70, b=20),
         )
         st.plotly_chart(fig_line, use_container_width=True)
 
 # ---- Expander with short documentation ----
 with st.expander("About"):
-    st.write("Data: Elhub 2021 (production per group and price area).")
+    st.write(
+        "Data: Elhub 2021 (production per group and price area). "
+        "Period, price area and time resolution are controlled from the shared sidebar."
+    )
