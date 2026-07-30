@@ -1,5 +1,5 @@
 .venv
-.streamlit
+.streamlit/secrets.toml
 assignment_descriptions
 __pycache__/
 .vscode/

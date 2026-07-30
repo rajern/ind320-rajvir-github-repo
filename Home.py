@@ -7,6 +7,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+st.sidebar.markdown("## Energy & Weather")
+st.sidebar.caption("Norway analytics portfolio")
+st.sidebar.divider()
+
 pages = {
     "Overview": [
         st.Page("pages/0_Overview.py", title="Project overview", default=True),

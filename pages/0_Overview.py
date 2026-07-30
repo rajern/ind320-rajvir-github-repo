@@ -17,30 +17,38 @@ st.info(
 )
 st.markdown(context_caption(context))
 
+metric_1, metric_2, metric_3 = st.columns(3)
+metric_1.metric("Price areas", "5")
+metric_2.metric("Analysis views", "8")
+metric_3.metric("Core data period", "2021")
+
 st.subheader("What you can explore")
 
-energy_col, weather_col = st.columns(2)
+energy_col, weather_col, relationship_col = st.columns(3)
 
 with energy_col:
-    st.markdown("### Energy system")
-    st.write(
-        "Explore production profiles, compare price areas on a map and build "
-        "configurable energy forecasts."
-    )
+    with st.container(border=True):
+        st.markdown("### Energy system")
+        st.write(
+            "Explore production profiles, compare price areas on a map and build "
+            "configurable energy forecasts."
+        )
 
 with weather_col:
-    st.markdown("### Weather and risk")
-    st.write(
-        "Inspect historical weather, identify unusual observations and estimate "
-        "snow transport for a selected location."
-    )
+    with st.container(border=True):
+        st.markdown("### Weather and risk")
+        st.write(
+            "Inspect historical weather, identify unusual observations and estimate "
+            "snow transport for a selected location."
+        )
 
-with st.container():
-    st.markdown("### Patterns and relationships")
-    st.write(
-        "Study seasonality, frequency patterns and lagged relationships between "
-        "weather and the energy system."
-    )
+with relationship_col:
+    with st.container(border=True):
+        st.markdown("### Relationships")
+        st.write(
+            "Study seasonality, frequency patterns and lagged relationships between "
+            "weather and the energy system."
+        )
 
 st.subheader("Getting started")
 st.markdown(
