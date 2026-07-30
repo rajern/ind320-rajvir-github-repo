@@ -2,11 +2,9 @@ import streamlit as st
 import pandas as pd
 from src.data_loader import load_open_meteo_api
 
-st.title("Weather Data table")
-st.markdown("""
-    This page shows a table of weather data variables from 2021
-    for the selected price area the Energy Production Explorer page.
-"""
+st.title("Weather data")
+st.caption(
+    "Review hourly weather variables and compact first-month trend summaries for the selected price area."
 )
 
 # Map price areas to city coordinates
@@ -18,7 +16,7 @@ AREA_COORDS = {
     "NO5": (60.39299, 5.32415),   # Bergen
 }
 
-# Use shared selection from Production Explorer, fallback to NO1
+# Use shared selection from Energy Explorer, fallback to NO1
 pricearea = st.session_state.get("pricearea", "NO1")
 lat, lon = AREA_COORDS[pricearea]
 

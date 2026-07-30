@@ -3,7 +3,10 @@ import pandas as pd
 import plotly.express as px
 from src.data_loader import load_elhub_production_data
 
-st.title("Energy Production explorer")
+st.title("Energy explorer")
+st.caption(
+    "Explore hourly electricity production by price area, month and production group."
+)
 
 # Load Elhub production data from MongoDB via cached helper
 df = load_elhub_production_data()

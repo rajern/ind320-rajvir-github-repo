@@ -7,10 +7,13 @@ import plotly.graph_objects as go
 
 from src.data_loader import load_open_meteo_api
 
-st.title("Weather Outliers and anomalies (SPC & LOF)")
+st.title("Anomaly detection")
+st.caption(
+    "Flag unusual temperature and precipitation observations with statistical process control and Local Outlier Factor."
+)
 
 
-# ---- Functions created in assignment3.ipynb ----
+# ---- Analysis helpers ----
 
 # Function for plotting temperature and relevant summaries of outliers
 def plot_temperature_with_spc(
@@ -205,7 +208,7 @@ AREA_COORDS = {
     "NO5": (60.39299, 5.32415),   # Bergen
 }
 
-# Use shared selection from Production explorer
+# Use shared selection from Energy Explorer
 pricearea = st.session_state.get("pricearea", "NO1")
 if pricearea not in AREA_COORDS:
     pricearea = "NO1"

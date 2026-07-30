@@ -8,9 +8,12 @@ from plotly.subplots import make_subplots
 
 from src.data_loader import load_elhub_production_data
 
-st.title("STL and spectrogram for Energy Production")
+st.title("Seasonality & frequency")
+st.caption(
+    "Separate recurring seasonal patterns from trends and inspect the frequency content of energy production."
+)
 
-# ---- Functions created in assignment3.ipynb ----
+# ---- Analysis helpers ----
 
 # Function for STL decomposition (LOESS) on Elhub production data
 def plot_stl_elhub(
@@ -155,12 +158,12 @@ df = load_elhub_production_data()
 # Find available price areas
 areas = sorted(df["pricearea"].dropna().unique().tolist())
 
-# Use selection from "Production explorer" if available
+# Use selection from Energy Explorer if available
 current_area = st.session_state.get("pricearea", areas[0])
 if current_area not in areas:
     current_area = areas[0]
 
-st.write(f"Current price area selected on page Energy Production Explorer: **{current_area}**")
+st.caption(f"Selected price area: **{current_area}** (shared from Energy Explorer).")
 
 # All production groups in this price area
 groups = sorted(

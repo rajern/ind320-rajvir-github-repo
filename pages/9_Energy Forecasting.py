@@ -134,15 +134,10 @@ def build_forecast_figure(
 
 # ---------- Streamlit page ---------- #
 
-st.title("Energy Forecasting")
-st.markdown(
-    """
-This page trains a SARIMAX model on selected hourly energy production or consumption.
-
-- Choose dataset, price area, group and training period on the left.
-- Choose **frequency** (Hourly / Daily), SARIMAX orders, and forecast horizon.
-- The plot on the right shows training data (blue), in-sample fit (dotted), and forecast with confidence bands.
-"""
+st.title("Energy forecasting")
+st.caption(
+    "Fit a configurable SARIMAX model to hourly or daily energy data and compare fitted values, "
+    "forecasts and confidence intervals."
 )
 
 # Load data once (cached in data_loader)

@@ -3,7 +3,10 @@ import pandas as pd
 import plotly.express as px
 from src.data_loader import load_open_meteo_api
 
-st.title("Weather plot explorer for 2021")
+st.title("Weather explorer")
+st.caption(
+    "Compare selected weather variables across a configurable range of months in 2021."
+)
 
 # Map price areas to city coordinates
 AREA_COORDS = {
@@ -14,7 +17,7 @@ AREA_COORDS = {
     "NO5": (60.39299, 5.32415),   # Bergen
 }
 
-# Use shared selection from Production Explorer, fallback to NO1
+# Use shared selection from Energy Explorer, fallback to NO1
 pricearea = st.session_state.get("pricearea", "NO1")
 lat, lon = AREA_COORDS[pricearea]
 

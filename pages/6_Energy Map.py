@@ -164,14 +164,14 @@ def build_map(
 # -----------------------------
 
 def main():
-    st.title("Map and selectors")
+    st.title("Energy map")
 
-    st.write(
+    st.caption(
         "This page shows the Norwegian price areas (NO1–NO5). "
         "You can select production or consumption, choose a group and a time "
         "interval, and see the average quantity per price area. "
         "Click on the map to store a coordinate that will later be used by "
-        "the snow-drift page."
+        "the Snow Drift page."
     )
 
     # --- Load GeoJSON ---
@@ -181,7 +181,7 @@ def main():
         st.error(str(e))
         st.stop()
 
-    # Price area from Production Explorer (if set), otherwise default to NO2
+    # Price area from Energy Explorer (if set), otherwise default to NO2
     selected_pricearea = st.session_state.get("pricearea", "NO2")
     if selected_pricearea not in VALID_PRICEAREAS:
         selected_pricearea = "NO2"
@@ -260,7 +260,7 @@ def main():
         )
     else:
         st.write(
-            "Click anywhere on the map to store a coordinate for the snow-drift page."
+            "Click anywhere on the map to store a coordinate for the Snow Drift page."
         )
 
 

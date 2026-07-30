@@ -22,7 +22,7 @@ from src.Snow_drift import (
 
 def get_map_coordinate() -> Tuple[float, float] | None:
     """
-    Read the coordinate stored by the map page.
+    Read the coordinate stored by the Energy Map page.
 
     Returns (lat, lon) if available, otherwise None.
     """
@@ -223,22 +223,22 @@ def plot_wind_rose(avg_sector_values: np.ndarray, overall_avg_kgm: float):
 def main() -> None:
     st.title("Snow drift")
 
-    st.write(
+    st.caption(
         "This page calculates yearly snow drift for a selected coordinate using "
         "hourly weather data from the Open-Meteo archive. "
     )
 
-    # --- Coordinate from map page ---
+    # --- Coordinate from Energy Map page ---
     coord = get_map_coordinate()
     if coord is None:
         st.warning(
-            "No coordinate found. Please select a point on the map page first. "
+            "No coordinate found. Please select a point on the Energy Map page first. "
             "The snow-drift calculation cannot run without a location."
         )
         st.stop()
 
     lat, lon = coord
-    st.info(f"Using coordinate from map page: lat={lat:.4f}, lon={lon:.4f}")
+    st.info(f"Using coordinate from Energy Map: lat={lat:.4f}, lon={lon:.4f}")
 
     # --- User controls: seasons and model parameters ---
     st.subheader("Season and model settings")

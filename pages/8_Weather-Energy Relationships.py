@@ -33,9 +33,9 @@ METEO_OPTIONS = {
 # Main page
 # ------------------------------------------------------------------
 
-st.title("Weather and energy production/consumption correlation")
+st.title("Weather-energy relationships")
 
-st.markdown(
+st.caption(
     """
 This page compares meteorological conditions with electricity production and 
 consumption using a sliding window correlation.  
@@ -43,7 +43,7 @@ Positive lag means **weather leads** the energy series (energy responds later).
 """
 )
 
-# Shared price area from Production Explorer (fallback if missing)
+# Shared price area from Energy Explorer (fallback if missing)
 default_area = st.session_state.get("pricearea", "NO1")
 all_areas = ["NO1", "NO2", "NO3", "NO4", "NO5"]
 

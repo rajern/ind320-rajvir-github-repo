@@ -2,3 +2,7 @@
 .streamlit
 assignment_descriptions
 __pycache__/
+.vscode/
+notebooks/
+*.py[cod]
+.pytest_cache/
