@@ -55,9 +55,11 @@ period_col.metric(
 )
 st.caption(f"Coordinates: {lat:.4f}, {lon:.4f}")
 
+st.divider()
 explore_tab, overview_tab = st.tabs(["Explore", "Data overview"])
 
 with explore_tab:
+    st.subheader("Analysis settings")
     control_col, range_col = st.columns([1, 2])
     with control_col:
         variable_label = st.selectbox(
@@ -89,6 +91,7 @@ with explore_tab:
             df_subset = df_period[[variable]].resample(resolution_rule).mean()
         df_subset = df_subset.dropna()
 
+    st.subheader("Results")
     summary_1, summary_2, summary_3 = st.columns(3)
     summary_1.metric("Average", f"{df_subset[variable].mean():,.1f} {unit}")
     summary_2.metric("Minimum", f"{df_subset[variable].min():,.1f} {unit}")
@@ -113,6 +116,10 @@ with explore_tab:
         showlegend=False,
     )
     st.plotly_chart(fig, use_container_width=True)
+    st.caption(
+        "The summary metrics and chart use the active weather location, period, "
+        "and time resolution."
+    )
 
 with overview_tab:
     st.subheader("Variables in the selected period")

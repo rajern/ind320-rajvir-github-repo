@@ -109,7 +109,7 @@ def plot_temperature_with_spc(
 
     fig.update_layout(
         xaxis_title="Time",
-        yaxis_title="Temperature (?C)",
+        yaxis_title="Temperature (\u00b0C)",
         legend_title=None,
         margin=dict(l=40, r=20, t=40, b=40),
     )
@@ -221,12 +221,14 @@ if df_period.empty:
 
 df_plot = df_period.reset_index().rename(columns={"time": "date"})
 
+st.divider()
+st.subheader("Choose analysis")
 tab_spc, tab_lof = st.tabs(["Temperature (SPC)", "Precipitation (LOF)"])
 
 with tab_spc:
-    st.subheader("Unusual temperature observations")
     st.write("The method removes a smooth seasonal trend, then flags residual variation outside robust control limits.")
 
+    st.subheader("Analysis settings")
     with st.expander("Advanced settings"):
         c1, c2 = st.columns(2)
         trend_keep_fraction = c1.number_input(
@@ -243,11 +245,13 @@ with tab_spc:
         trend_keep_fraction=trend_keep_fraction,
         sigma_threshold=sigma_threshold,
     )
+    st.subheader("Results")
     metric_1, metric_2, metric_3 = st.columns(3)
     metric_1.metric("Observations", f"{summary_spc['n_points']:,}")
     metric_2.metric("Flagged", f"{summary_spc['n_outliers']:,}")
     metric_3.metric("Flagged share", f"{summary_spc['outlier_fraction']:.2%}")
     st.plotly_chart(fig_spc, use_container_width=True)
+    st.caption("Red markers indicate observations outside the robust SPC limits.")
 
     with st.expander("Technical diagnostics"):
         st.write(f"Residual center: {summary_spc['satv_center']:.2f} \u00b0C")
@@ -258,9 +262,9 @@ with tab_spc:
         )
 
 with tab_lof:
-    st.subheader("Unusual precipitation observations")
     st.write("Local Outlier Factor flags hourly precipitation values that differ from nearby observations in the data distribution.")
 
+    st.subheader("Analysis settings")
     with st.expander("Advanced settings"):
         c1, c2 = st.columns(2)
         outlier_fraction = c1.number_input(
@@ -277,11 +281,13 @@ with tab_lof:
         outlier_fraction=outlier_fraction,
         n_neighbors=int(n_neighbors),
     )
+    st.subheader("Results")
     metric_1, metric_2, metric_3 = st.columns(3)
     metric_1.metric("Observations", f"{summary_lof['n_points']:,}")
     metric_2.metric("Flagged", f"{summary_lof['n_outliers']:,}")
     metric_3.metric("Flagged share", f"{summary_lof['outlier_fraction_estimated']:.2%}")
     st.plotly_chart(fig_lof, use_container_width=True)
+    st.caption("Red markers indicate observations flagged by Local Outlier Factor.")
 
     with st.expander("Technical diagnostics"):
         if summary_lof["n_outliers"]:

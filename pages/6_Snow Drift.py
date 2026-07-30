@@ -74,16 +74,16 @@ def prepare_snowdrift_dataframe(
     df.rename(
         columns={
             "time": "time",
-            "temperature_2m": "temperature_2m (?C)",
+            "temperature_2m": "temperature_2m (\u00b0C)",
             "precipitation": "precipitation (mm)",
             "wind_speed_10m": "wind_speed_10m (m/s)",
-            "wind_direction_10m": "wind_direction_10m (?)",
+            "wind_direction_10m": "wind_direction_10m (\u00b0)",
         },
         inplace=True,
     )
 
-    # Create season label: July?December belong to current year,
-    # January?June belong to previous year.
+    # Create season label: July-December belong to current year,
+    # January-June belong to previous year.
     df["season"] = df["time"].apply(
         lambda dt: dt.year if dt.month >= 7 else dt.year - 1
     )
@@ -184,7 +184,7 @@ def plot_wind_rose(avg_sector_values: np.ndarray, overall_avg_kgm: float):
                 tickvals=theta_deg,
                 ticktext=directions,
                 direction="clockwise",
-                rotation=90,  # 0? = North
+                rotation=90,  # 0 degrees = North
             ),
             radialaxis=dict(
                 angle=90,
@@ -225,8 +225,9 @@ def main() -> None:
     )
     st.page_link("pages/5_Energy Map.py", label="Change weather location on Energy Map")
 
+    st.divider()
     # --- User controls: seasons and model parameters ---
-    st.subheader("Season and model settings")
+    st.subheader("Analysis settings")
     st.caption(
         "A year is defined as 1 July in the selected start year to 30 June in the "
         "following year."
@@ -259,7 +260,7 @@ def main() -> None:
             step=1000.0,
         )
         theta = st.slider(
-            "Relocation coefficient ?",
+            "Relocation coefficient (theta)",
             min_value=0.0,
             max_value=1.0,
             value=0.5,
@@ -267,11 +268,11 @@ def main() -> None:
         )
 
     st.write(
-        f"Seasons included: **{start_season}?{start_season + 1}** "
-        f"to **{end_season}?{end_season + 1}**."
+        f"Seasons included: **{start_season}-{start_season + 1}** "
+        f"to **{end_season}-{end_season + 1}**."
     )
 
-    compute_btn = st.button("Compute snow drift")
+    compute_btn = st.button("Compute snow drift", type="primary")
     if not compute_btn:
         st.stop()
 
@@ -312,6 +313,7 @@ def main() -> None:
         st.warning("Snow-drift calculation returned no yearly results.")
         st.stop()
 
+    st.subheader("Results")
     yearly_df_display = yearly_df.copy()
     yearly_df_display["Snow transport (tonnes/m)"] = yearly_df_display["Qt (kg/m)"] / 1000.0
     yearly_df_display = yearly_df_display.rename(
@@ -327,6 +329,10 @@ def main() -> None:
     metric_1, metric_2 = st.columns(2)
     metric_1.metric("Average seasonal transport", f"{overall_avg / 1000:,.1f} tonnes/m")
     metric_2.metric("Seasons analysed", f"{len(yearly_df):,}")
+    st.caption(
+        "Results use the active weather location and the season and model "
+        "settings selected above."
+    )
 
     st.subheader("Yearly snow transport per season")
     st.dataframe(
