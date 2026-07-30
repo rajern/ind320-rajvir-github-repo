@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import date, timedelta
 
 import folium
 import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
 
-from src.analysis_context import AREA_LOCATIONS, PRICE_AREAS
+from src.analysis_context import (
+    AREA_LOCATIONS,
+    context_caption,
+    render_analysis_context,
+)
 from src.data_loader import (
     load_elhub_consumption_data,
     load_elhub_production_data,
@@ -142,9 +145,18 @@ def build_map(
 
 
 def main() -> None:
+    context = render_analysis_context(show_resolution=False, show_location=False)
+
     st.title("Energy map")
     st.caption(
         "Compare mean hourly energy across Norway's five price areas, then select a coordinate for the Snow Drift analysis."
+    )
+    st.markdown(
+        context_caption(
+            context,
+            include_resolution=False,
+            include_location=False,
+        )
     )
 
     try:
@@ -153,9 +165,7 @@ def main() -> None:
         st.error(str(exc))
         st.stop()
 
-    selected_pricearea = st.session_state.get("pricearea", "NO2")
-    if selected_pricearea not in PRICE_AREAS:
-        selected_pricearea = "NO2"
+    selected_pricearea = context.price_area
 
     st.subheader("Data selection")
     col_1, col_2 = st.columns(2)
@@ -166,23 +176,16 @@ def main() -> None:
             horizontal=True,
         )
         kind = "production" if data_type_label == "Production" else "consumption"
-        groups = get_groups(kind)
-        if not groups:
-            st.error("No groups were found for this data type.")
-            st.stop()
+
+    groups = get_groups(kind)
+    if not groups:
+        st.error("No groups were found for this data type.")
+        st.stop()
+    with col_2:
         group = st.selectbox("Group", groups)
 
-    with col_2:
-        start_date = st.date_input(
-            "Start date",
-            value=date(2023, 1, 1),
-            min_value=date(2021, 1, 1),
-            max_value=date(2024, 12, 31),
-        )
-        days = st.slider("Interval length (days)", 1, 365, 30)
-
-    start_ts = pd.Timestamp(start_date)
-    end_ts = start_ts + timedelta(days=days)
+    start_ts = pd.Timestamp(context.start_date)
+    end_ts = pd.Timestamp(context.end_date) + pd.Timedelta(days=1)
     df_mean = mean_by_pricearea(kind, group, start_ts, end_ts)
 
     if df_mean.empty:

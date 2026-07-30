@@ -6,12 +6,23 @@ from scipy.signal import spectrogram
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from src.analysis_context import context_caption, render_analysis_context
 from src.data_loader import load_elhub_production_data
+
+context = render_analysis_context(show_resolution=False, show_location=False)
 
 st.title("Seasonality & frequency")
 st.caption(
     "Separate recurring seasonal patterns from trends and inspect the frequency content of energy production."
 )
+st.markdown(
+    context_caption(
+        context,
+        include_resolution=False,
+        include_location=False,
+    )
+)
+st.caption("These analyses use hourly observations within the shared period.")
 
 # ---- Analysis helpers ----
 
@@ -151,19 +162,20 @@ def plot_spectrogram_elhub(
     return fig, (f, t, Sxx)
 
 
-# ---- Load Elhub data and use price area from page 2 ----
+# ---- Load Elhub data for the shared price area and period ----
 
-df = load_elhub_production_data()
+df_all = load_elhub_production_data()
+current_area = context.price_area
+start_ts = pd.Timestamp(context.start_date)
+end_ts = pd.Timestamp(context.end_date) + pd.Timedelta(days=1)
+df = df_all[
+    (df_all["starttime"] >= start_ts)
+    & (df_all["starttime"] < end_ts)
+].copy()
 
-# Find available price areas
-areas = sorted(df["pricearea"].dropna().unique().tolist())
-
-# Use selection from Energy Explorer if available
-current_area = st.session_state.get("pricearea", areas[0])
-if current_area not in areas:
-    current_area = areas[0]
-
-st.caption(f"Selected price area: **{current_area}** (shared from Energy Explorer).")
+if df.loc[df["pricearea"] == current_area].empty:
+    st.warning("No production data are available for the shared area and period.")
+    st.stop()
 
 # All production groups in this price area
 groups = sorted(

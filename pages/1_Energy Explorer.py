@@ -5,13 +5,13 @@ import plotly.express as px
 from src.analysis_context import context_caption, render_analysis_context
 from src.data_loader import load_elhub_production_data
 
-context = render_analysis_context()
+context = render_analysis_context(show_location=False)
 
 st.title("Energy explorer")
 st.caption(
     "Explore electricity production by price area, period and production group."
 )
-st.markdown(context_caption(context))
+st.markdown(context_caption(context, include_location=False))
 
 # Load Elhub production data from MongoDB via cached helper
 df = load_elhub_production_data()

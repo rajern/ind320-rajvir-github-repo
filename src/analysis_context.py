@@ -66,7 +66,11 @@ def _weather_location(price_area: str) -> tuple[float, float, str, str]:
     return latitude, longitude, label, "representative"
 
 
-def render_analysis_context() -> AnalysisContext:
+def render_analysis_context(
+    *,
+    show_resolution: bool = True,
+    show_location: bool = True,
+) -> AnalysisContext:
     """Render the shared sidebar controls and return their current values."""
     _initialise_state()
 
@@ -84,11 +88,14 @@ def render_analysis_context() -> AnalysisContext:
         key="analysis_period",
         help="The pilot currently uses the common 2021 data period.",
     )
-    resolution = st.sidebar.selectbox(
-        "Time resolution",
-        RESOLUTIONS,
-        key="analysis_resolution",
-    )
+    if show_resolution:
+        resolution = st.sidebar.selectbox(
+            "Time resolution",
+            RESOLUTIONS,
+            key="analysis_resolution",
+        )
+    else:
+        resolution = st.session_state["analysis_resolution"]
 
     if isinstance(period, (tuple, list)) and len(period) == 2:
         start_date, end_date = period
@@ -98,14 +105,15 @@ def render_analysis_context() -> AnalysisContext:
 
     latitude, longitude, location_label, location_source = _weather_location(price_area)
 
-    st.sidebar.markdown("**Weather location**")
-    st.sidebar.caption(f"{location_label} | {latitude:.4f}, {longitude:.4f}")
-    if location_source == "representative":
-        st.sidebar.caption("Representative point for the selected price area.")
-    elif location_source == "manual":
-        st.sidebar.caption("Coordinates entered manually on the Energy Map.")
-    else:
-        st.sidebar.caption("Point selected on the Energy Map.")
+    if show_location:
+        st.sidebar.markdown("**Weather location**")
+        st.sidebar.caption(f"{location_label} | {latitude:.4f}, {longitude:.4f}")
+        if location_source == "representative":
+            st.sidebar.caption("Representative point for the selected price area.")
+        elif location_source == "manual":
+            st.sidebar.caption("Coordinates entered manually on the Energy Map.")
+        else:
+            st.sidebar.caption("Point selected on the Energy Map.")
 
     return AnalysisContext(
         price_area=price_area,
@@ -119,13 +127,20 @@ def render_analysis_context() -> AnalysisContext:
     )
 
 
-def context_caption(context: AnalysisContext) -> str:
+def context_caption(
+    context: AnalysisContext,
+    *,
+    include_resolution: bool = True,
+    include_location: bool = True,
+) -> str:
     period = (
         f"{context.start_date:%d %b %Y}"
         if context.start_date == context.end_date
         else f"{context.start_date:%d %b %Y} - {context.end_date:%d %b %Y}"
     )
-    return (
-        f"**Active selection:** {context.price_area} | {period} | "
-        f"{context.resolution.lower()} | {context.location_label}"
-    )
+    parts = [context.price_area, period]
+    if include_resolution:
+        parts.append(context.resolution.lower())
+    if include_location:
+        parts.append(context.location_label)
+    return f"**Active selection:** {' | '.join(parts)}"
